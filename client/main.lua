@@ -577,17 +577,6 @@ AddEventHandler('onResourceStop', function(resourceName)
     end
 end)
 
--- Menu state management
-CreateThread(function()
-    while true do
-        Wait(100)
-        
-        if isMenuOpen and not lib.getOpenContextMenu() then
-            isMenuOpen = false
-        end
-    end
-end)
-
 -- Exports
 exports('GetPlayerNPCs', function()
     return playerNPCs
