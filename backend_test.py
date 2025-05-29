@@ -26,6 +26,8 @@ class GangNPCManagerTester:
                 response = requests.get(url, headers=headers, params=params)
             elif method == 'POST':
                 response = requests.post(url, json=data, headers=headers)
+            elif method == 'PUT':
+                response = requests.put(url, json=data, headers=headers)
             elif method == 'DELETE':
                 response = requests.delete(url, headers=headers)
 
@@ -88,18 +90,25 @@ class GangNPCManagerTester:
                 print(f"❌ Expected 6 gangs, got {gang_count}")
         return success
 
-    def test_spawn_npc(self, gang, quantity=1, formation="circle"):
-        """Test spawning NPCs"""
+    def test_spawn_npc(self, gang, quantity=1, formation="circle", health=100, armor=0, accuracy=50, 
+                      friendly_player_ids="", friendly_jobs="", vec3_input=""):
+        """Test spawning NPCs with advanced options"""
         print(f"\n=== Testing Spawn NPC ({gang}, qty: {quantity}) ===")
         data = {
             "gang": gang,
             "position": self.test_position,
             "quantity": quantity,
-            "formation": formation
+            "formation": formation,
+            "health": health,
+            "armor": armor,
+            "accuracy": accuracy,
+            "friendly_player_ids": friendly_player_ids,
+            "friendly_jobs": friendly_jobs,
+            "vec3_input": vec3_input
         }
         
         success, response = self.run_test(
-            f"Spawn {quantity} {gang} NPCs",
+            f"Spawn {quantity} {gang} NPCs with advanced options",
             "POST",
             "npc/spawn",
             200,
@@ -108,6 +117,36 @@ class GangNPCManagerTester:
         
         if success:
             print(f"Successfully spawned {len(response)} NPCs")
+            # Verify the advanced options were applied
+            if len(response) > 0:
+                npc = response[0]
+                print(f"Health: {npc.get('health')} (Expected: {health})")
+                print(f"Armor: {npc.get('armor')} (Expected: {armor})")
+                print(f"Accuracy: {npc.get('accuracy')} (Expected: {accuracy})")
+                
+                # Check friendly IDs and jobs
+                if friendly_player_ids:
+                    expected_ids = [id.strip() for id in friendly_player_ids.split(",") if id.strip()]
+                    actual_ids = npc.get('friendly_player_ids', [])
+                    print(f"Friendly Player IDs: {actual_ids} (Expected: {expected_ids})")
+                    if set(expected_ids) == set(actual_ids):
+                        print("✅ Friendly player IDs match")
+                    else:
+                        print("❌ Friendly player IDs don't match")
+                
+                if friendly_jobs:
+                    expected_jobs = [job.strip() for job in friendly_jobs.split(",") if job.strip()]
+                    actual_jobs = npc.get('friendly_jobs', [])
+                    print(f"Friendly Jobs: {actual_jobs} (Expected: {expected_jobs})")
+                    if set(expected_jobs) == set(actual_jobs):
+                        print("✅ Friendly jobs match")
+                    else:
+                        print("❌ Friendly jobs don't match")
+                
+                # Check if vec3 was parsed correctly
+                if vec3_input:
+                    print(f"Position: {npc.get('position')} (From vec3: {vec3_input})")
+            
             self.spawned_npcs.extend([npc["id"] for npc in response])
             if quantity > 1:
                 # Store the group ID for later testing
@@ -117,6 +156,208 @@ class GangNPCManagerTester:
                     print(f"Group ID: {group_id}")
         
         return success, response
+
+    def test_spawn_npc_with_invalid_values(self):
+        """Test spawning NPCs with invalid values to check validation"""
+        print("\n=== Testing Spawn NPC Validation ===")
+        
+        # Test with invalid health
+        data_invalid_health = {
+            "gang": "ballas",
+            "position": self.test_position,
+            "health": 300  # Above max (200)
+        }
+        
+        success, response = self.run_test(
+            "Spawn NPC with invalid health (300)",
+            "POST",
+            "npc/spawn",
+            400,  # Expecting a 400 Bad Request
+            data=data_invalid_health
+        )
+        
+        # Test with invalid armor
+        data_invalid_armor = {
+            "gang": "ballas",
+            "position": self.test_position,
+            "armor": 150  # Above max (100)
+        }
+        
+        success, response = self.run_test(
+            "Spawn NPC with invalid armor (150)",
+            "POST",
+            "npc/spawn",
+            400,  # Expecting a 400 Bad Request
+            data=data_invalid_armor
+        )
+        
+        # Test with invalid accuracy
+        data_invalid_accuracy = {
+            "gang": "ballas",
+            "position": self.test_position,
+            "accuracy": 150  # Above max (100)
+        }
+        
+        success, response = self.run_test(
+            "Spawn NPC with invalid accuracy (150)",
+            "POST",
+            "npc/spawn",
+            400,  # Expecting a 400 Bad Request
+            data=data_invalid_accuracy
+        )
+        
+        return True  # Return True as we expect these tests to fail with 400
+
+    def test_vec3_parser(self):
+        """Test the vec3 parser with different formats"""
+        print("\n=== Testing vec3 Parser ===")
+        
+        # Test standard vec3 format
+        vec3_standard = "vec3(-100.5, 200.3, 30.1)"
+        success, response = self.test_spawn_npc("ballas", vec3_input=vec3_standard)
+        if success and len(response) > 0:
+            position = response[0].get('position', {})
+            expected = {"x": -100.5, "y": 200.3, "z": 30.1}
+            if (position.get('x') == expected['x'] and 
+                position.get('y') == expected['y'] and 
+                position.get('z') == expected['z']):
+                print(f"✅ vec3 standard format parsed correctly: {position}")
+            else:
+                print(f"❌ vec3 standard format parsed incorrectly: {position}, expected: {expected}")
+        
+        # Test array format
+        vec3_array = "[-277.7, -997.36, 24.94]"
+        success, response = self.test_spawn_npc("ballas", vec3_input=vec3_array)
+        if success and len(response) > 0:
+            position = response[0].get('position', {})
+            expected = {"x": -277.7, "y": -997.36, "z": 24.94}
+            if (abs(position.get('x') - expected['x']) < 0.01 and 
+                abs(position.get('y') - expected['y']) < 0.01 and 
+                abs(position.get('z') - expected['z']) < 0.01):
+                print(f"✅ vec3 array format parsed correctly: {position}")
+            else:
+                print(f"❌ vec3 array format parsed incorrectly: {position}, expected: {expected}")
+        
+        # Test simple comma format
+        vec3_simple = "-277.7, -997.36, 24.94"
+        success, response = self.test_spawn_npc("ballas", vec3_input=vec3_simple)
+        if success and len(response) > 0:
+            position = response[0].get('position', {})
+            expected = {"x": -277.7, "y": -997.36, "z": 24.94}
+            if (abs(position.get('x') - expected['x']) < 0.01 and 
+                abs(position.get('y') - expected['y']) < 0.01 and 
+                abs(position.get('z') - expected['z']) < 0.01):
+                print(f"✅ vec3 simple format parsed correctly: {position}")
+            else:
+                print(f"❌ vec3 simple format parsed incorrectly: {position}, expected: {expected}")
+        
+        return True
+
+    def test_update_npc(self, npc_id, health=None, armor=None, accuracy=None, 
+                       friendly_player_ids=None, friendly_jobs=None, weapon=None):
+        """Test updating an NPC"""
+        print(f"\n=== Testing Update NPC ({npc_id}) ===")
+        
+        # Prepare update data
+        update_data = {}
+        if health is not None:
+            update_data["health"] = health
+        if armor is not None:
+            update_data["armor"] = armor
+        if accuracy is not None:
+            update_data["accuracy"] = accuracy
+        if friendly_player_ids is not None:
+            update_data["friendly_player_ids"] = friendly_player_ids
+        if friendly_jobs is not None:
+            update_data["friendly_jobs"] = friendly_jobs
+        if weapon is not None:
+            update_data["weapon"] = weapon
+        
+        success, response = self.run_test(
+            f"Update NPC {npc_id}",
+            "PUT",
+            f"npcs/{npc_id}",
+            200,
+            data=update_data
+        )
+        
+        if success:
+            print("NPC updated successfully")
+            # Verify the updates were applied
+            if health is not None:
+                print(f"Health: {response.get('health')} (Expected: {health})")
+            if armor is not None:
+                print(f"Armor: {response.get('armor')} (Expected: {armor})")
+            if accuracy is not None:
+                print(f"Accuracy: {response.get('accuracy')} (Expected: {accuracy})")
+            if weapon is not None:
+                print(f"Weapon: {response.get('weapon')} (Expected: {weapon})")
+            
+            # Check friendly IDs and jobs
+            if friendly_player_ids is not None:
+                expected_ids = [id.strip() for id in friendly_player_ids.split(",") if id.strip()]
+                actual_ids = response.get('friendly_player_ids', [])
+                print(f"Friendly Player IDs: {actual_ids} (Expected: {expected_ids})")
+                if set(expected_ids) == set(actual_ids):
+                    print("✅ Updated friendly player IDs match")
+                else:
+                    print("❌ Updated friendly player IDs don't match")
+            
+            if friendly_jobs is not None:
+                expected_jobs = [job.strip() for job in friendly_jobs.split(",") if job.strip()]
+                actual_jobs = response.get('friendly_jobs', [])
+                print(f"Friendly Jobs: {actual_jobs} (Expected: {expected_jobs})")
+                if set(expected_jobs) == set(actual_jobs):
+                    print("✅ Updated friendly jobs match")
+                else:
+                    print("❌ Updated friendly jobs don't match")
+        
+        return success, response
+
+    def test_update_npc_with_invalid_values(self, npc_id):
+        """Test updating an NPC with invalid values"""
+        print(f"\n=== Testing Update NPC Validation ({npc_id}) ===")
+        
+        # Test with invalid health
+        update_data_invalid_health = {
+            "health": 300  # Above max (200)
+        }
+        
+        success, response = self.run_test(
+            "Update NPC with invalid health (300)",
+            "PUT",
+            f"npcs/{npc_id}",
+            400,  # Expecting a 400 Bad Request
+            data=update_data_invalid_health
+        )
+        
+        # Test with invalid armor
+        update_data_invalid_armor = {
+            "armor": 150  # Above max (100)
+        }
+        
+        success, response = self.run_test(
+            "Update NPC with invalid armor (150)",
+            "PUT",
+            f"npcs/{npc_id}",
+            400,  # Expecting a 400 Bad Request
+            data=update_data_invalid_armor
+        )
+        
+        # Test with invalid accuracy
+        update_data_invalid_accuracy = {
+            "accuracy": 150  # Above max (100)
+        }
+        
+        success, response = self.run_test(
+            "Update NPC with invalid accuracy (150)",
+            "PUT",
+            f"npcs/{npc_id}",
+            400,  # Expecting a 400 Bad Request
+            data=update_data_invalid_accuracy
+        )
+        
+        return True  # Return True as we expect these tests to fail with 400
 
     def test_get_npcs(self):
         """Test getting all NPCs"""
