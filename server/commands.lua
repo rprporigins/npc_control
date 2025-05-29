@@ -43,8 +43,8 @@ RegisterCommand('spawnnpc', function(source, args, rawCommand)
         position = {x = coords.x + 2.0, y = coords.y, z = coords.z},
         heading = heading,
         formation = 'circle',
-        spawned_by = Player.PlayerData.citizenid or tostring(source),
-        owner_ids = Player.PlayerData.citizenid or tostring(source)
+        spawned_by = Player.PlayerData.citizenid,
+        owner_ids = Player.PlayerData.citizenid
     }
     
     NPCManager.SpawnNPCs(spawnData, function(success, npcs)
@@ -54,7 +54,7 @@ RegisterCommand('spawnnpc', function(source, args, rawCommand)
             Utils.Notify(source, 'Erro', 'Falha ao spawnar NPCs', 'error')
         end
     end)
-end, false)
+end, true)
 
 RegisterCommand('clearnpcs', function(source, args, rawCommand)
     if not IsPlayerAceAllowed(source, Config.Permissions.AdminGroup) then
@@ -69,7 +69,7 @@ RegisterCommand('clearnpcs', function(source, args, rawCommand)
     end
     
     Utils.Notify(source, 'Sucesso', count .. ' NPCs removidos!', 'success')
-end, false)
+end, true)
 
 RegisterCommand('npcstats', function(source, args, rawCommand)
     if not IsPlayerAceAllowed(source, Config.Permissions.AdminGroup) then
@@ -97,14 +97,14 @@ RegisterCommand('npcstats', function(source, args, rawCommand)
         multiline = true,
         args = {'Gang NPC Stats', message}
     })
-end, false)
+end, true)
 
 -- Player Commands
 RegisterCommand('mynpcs', function(source, args, rawCommand)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
     
-    local playerId = Player.PlayerData.citizenid or tostring(source)
+    local playerId = Player.PlayerData.citizenid
     
     NPCManager.GetPlayerNPCs(playerId, function(npcs)
         if #npcs == 0 then
@@ -136,7 +136,7 @@ AddEventHandler('gang_npc:requestPlayerData', function()
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
     
-    local playerId = Player.PlayerData.citizenid or tostring(source)
+    local playerId = Player.PlayerData.citizenid
     
     NPCManager.GetPlayerNPCs(playerId, function(npcs)
         -- Get player groups (to be implemented)
@@ -155,7 +155,7 @@ AddEventHandler('gang_npc:sendCommand', function(commandData)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
     
-    commandData.issued_by = Player.PlayerData.citizenid or tostring(source)
+    commandData.issued_by = Player.PlayerData.citizenid
     
     NPCManager.SendCommand(commandData, function(success, message)
         TriggerClientEvent('gang_npc:commandResponse', source, {
@@ -209,7 +209,7 @@ AddEventHandler('gang_npc:spawnFromPanel', function(spawnData)
     end
     
     local Player = QBCore.Functions.GetPlayer(source)
-    spawnData.spawned_by = Player.PlayerData.citizenid or tostring(source)
+    spawnData.spawned_by = Player.PlayerData.citizenid
     
     NPCManager.SpawnNPCs(spawnData, function(success, npcs)
         if success and npcs then

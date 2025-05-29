@@ -13,6 +13,9 @@ local lastCommandTime = 0
 CreateThread(function()
     Utils.Debug('Client initialized')
     
+    -- Register decorators first
+    RegisterDecorators()
+    
     -- Register keybinds
     RegisterKeyBind()
     
@@ -24,6 +27,18 @@ CreateThread(function()
     -- Start update loops
     StartUpdateLoops()
 end)
+
+-- Register decorators
+function RegisterDecorators()
+    DecorRegister('gang_npc', 2) -- Int type
+    DecorRegister('gang_npc_id', 1) -- String type
+    
+    for gang in pairs(Config.Gangs) do
+        DecorRegister('gang_npc_' .. gang, 5) -- Bool type
+    end
+    
+    Utils.Debug('Decorators registered')
+end
 
 -- Register keybinds
 function RegisterKeyBind()
@@ -335,20 +350,27 @@ function ExecuteGroupCommand(groupId, command)
     Utils.Notify('Comando de Grupo', 'Comando "' .. command .. '" enviado para grupo', 'success')
 end
 
--- Get target player via raycast
+-- Get target player via improved raycast
 function GetTargetPlayer()
     local playerPed = PlayerPedId()
     local coords = GetEntityCoords(playerPed)
     local direction = GetEntityForwardVector(playerPed)
-    local endCoords = coords + direction * 10.0
+    local endCoords = coords + direction * 15.0
     
-    local rayHandle = StartShapeTestRay(coords.x, coords.y, coords.z, endCoords.x, endCoords.y, endCoords.z, 12, playerPed, 0)
+    -- Use flag 12 for player detection (players + NPCs)
+    local rayHandle = StartShapeTestRay(coords.x, coords.y, coords.z + 0.5, endCoords.x, endCoords.y, endCoords.z, 12, playerPed, 0)
     local retval, hit, hitCoords, surfaceNormal, entityHit = GetShapeTestResult(rayHandle)
     
-    if hit and entityHit > 0 and IsPedAPlayer(entityHit) then
-        local targetPlayer = NetworkGetPlayerIndexFromPed(entityHit)
-        if targetPlayer ~= -1 then
-            return GetPlayerServerId(targetPlayer)
+    if hit and entityHit > 0 then
+        -- Check if it's a player
+        if IsPedAPlayer(entityHit) then
+            local targetPlayer = NetworkGetPlayerIndexFromPed(entityHit)
+            if targetPlayer ~= -1 and targetPlayer ~= PlayerId() then
+                local serverId = GetPlayerServerId(targetPlayer)
+                if serverId and serverId > 0 then
+                    return serverId
+                end
+            end
         end
     end
     
@@ -370,7 +392,7 @@ function SetupTargetSystem()
             label = Config.Target.Label,
             distance = Config.Target.Distance,
             canInteract = function(entity, distance, coords, name, bone)
-                return DecorExistOn(entity, 'gang_npc')
+                return DecorExistOn(entity, 'gang_npc') and DecorGetInt(entity, 'gang_npc') == 1
             end,
             onSelect = function(data)
                 OpenNPCQuickMenu(data.entity)
@@ -387,9 +409,8 @@ function OpenNPCQuickMenu(entity)
     
     -- Get NPC ID from decorator
     local npcId = nil
-    for id, _ in pairs(DecorGetBool(entity, 'gang_npc_' .. id) and {[id] = true} or {}) do
-        npcId = id
-        break
+    if DecorExistOn(entity, 'gang_npc_id') then
+        npcId = DecorGetString(entity, 'gang_npc_id')
     end
     
     if not npcId then
