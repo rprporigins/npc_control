@@ -120,13 +120,13 @@ function App() {
     
     try {
       const response = await axios.post(`${API}/npc/spawn`, spawnForm);
-      console.log(`${response.data.length} NPCs spawnados com sucesso!`);
-      await loadNPCs();
-      await loadGroups();
-      await loadStats();
+      const message = `✅ ${response.data.length} NPCs spawnados com sucesso!`;
+      console.log(message);
+      alert(message);
+      await Promise.all([loadNPCs(), loadGroups(), loadStats()]);
     } catch (error) {
       console.error('Erro ao spawnar NPCs:', error);
-      alert('Erro ao spawnar NPCs: ' + error.response?.data?.detail);
+      alert('❌ Erro ao spawnar NPCs: ' + error.response?.data?.detail);
     } finally {
       setLoading(false);
     }
