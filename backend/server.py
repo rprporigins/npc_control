@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -21,7 +21,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
-app = FastAPI(title="Gang NPC Manager API", description="Sistema de gerenciamento de NPCs para FiveM")
+app = FastAPI(title="Gang NPC Manager API v2.0", description="Sistema avançado de gerenciamento de NPCs para FiveM")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -41,37 +41,37 @@ GANG_CONFIG = {
         "name": "Ballas",
         "color": "#800080",
         "models": ["g_m_y_ballaseast_01", "g_m_y_ballasorig_01", "g_m_y_ballasouth_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_MACHETE", "WEAPON_PUMPSHOTGUN"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_MACHETE", "WEAPON_PUMPSHOTGUN", "WEAPON_SMG"]
     },
     GangType.GROVE_STREET: {
         "name": "Grove Street Families",
         "color": "#00FF00",
         "models": ["g_m_y_famca_01", "g_m_y_famdnf_01", "g_m_y_famfor_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_KNIFE", "WEAPON_ASSAULTRIFLE"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_KNIFE", "WEAPON_ASSAULTRIFLE", "WEAPON_COMBATPISTOL"]
     },
     GangType.VAGOS: {
         "name": "Los Santos Vagos",
         "color": "#FFFF00",
         "models": ["g_m_y_mexgang_01", "g_m_y_mexgoon_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SAWNOFFSHOTGUN"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SAWNOFFSHOTGUN", "WEAPON_SMG"]
     },
     GangType.LOST_MC: {
         "name": "Lost MC",
         "color": "#FF0000",
         "models": ["g_m_y_lost_01", "g_m_y_lost_02", "g_m_y_lost_03"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_SAWNOFFSHOTGUN", "WEAPON_KNIFE", "WEAPON_SMG"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SAWNOFFSHOTGUN", "WEAPON_KNIFE", "WEAPON_SMG", "WEAPON_ASSAULTRIFLE"]
     },
     GangType.TRIADS: {
         "name": "Triads",
         "color": "#0000FF",
         "models": ["g_m_m_chigoon_01", "g_m_m_chigoon_02", "g_m_m_chiboss_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SWITCHBLADE", "WEAPON_COMBATPISTOL"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SWITCHBLADE", "WEAPON_COMBATPISTOL", "WEAPON_SMG"]
     },
     GangType.ARMENIAN_MAFIA: {
         "name": "Armenian Mafia",
         "color": "#4B0082",
         "models": ["g_m_m_armboss_01", "g_m_m_armgoon_01", "g_m_m_armlieut_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_COMBATPISTOL", "WEAPON_ASSAULTRIFLE"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_COMBATPISTOL", "WEAPON_ASSAULTRIFLE", "WEAPON_PUMPSHOTGUN"]
     }
 }
 
@@ -81,6 +81,9 @@ class NPCState(str, Enum):
     FOLLOWING = "following"
     ATTACKING = "attacking"
     DEFENDING = "defending"
+    GUARDING = "guarding"
+    PEACEFUL = "peaceful"
+    COMBAT = "combat"
 
 class Formation(str, Enum):
     CIRCLE = "circle"
@@ -88,20 +91,70 @@ class Formation(str, Enum):
     SQUARE = "square"
     SCATTERED = "scattered"
 
-# Data Models
+class GroupRole(str, Enum):
+    OWNER = "owner"
+    LEADER = "leader"
+    FRIENDLY = "friendly"
+    NEUTRAL = "neutral"
+    ENEMY = "enemy"
+
+class TargetType(str, Enum):
+    PLAYER_ID = "player_id"
+    JOB = "job"
+    GANG = "gang"
+    ALL = "all"
+    POSITION = "position"
+
+# Advanced Group System
+class GroupMember(BaseModel):
+    type: TargetType  # player_id, job, gang, all
+    value: str  # ID, job name, gang name, "all"
+    role: GroupRole  # owner, leader, friendly, neutral, enemy
+
+class NPCGroup(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = ""
+    gang: GangType
+    members: List[GroupMember] = Field(default_factory=list)
+    auto_defend: bool = True  # Defend owners/leaders automatically
+    auto_attack_enemies: bool = True  # Attack enemies on sight
+    patrol_area: Optional[dict] = None  # {center: {x,y,z}, radius: float}
+    created_by: Optional[str] = None  # Admin who created
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+
+# Enhanced NPC Data
 class NPCData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     gang: GangType
     model: str
     position: dict  # {x, y, z}
+    heading: float = 0.0
     state: NPCState = NPCState.IDLE
     group_id: Optional[str] = None
+    npc_group_id: Optional[str] = None  # Advanced group system
     health: int = 100
     armor: int = 0
-    accuracy: int = 50  # Mira/precisão (0-100)
+    accuracy: int = 50
     weapon: Optional[str] = None
-    friendly_player_ids: List[str] = Field(default_factory=list)  # IDs do servidor
-    friendly_jobs: List[str] = Field(default_factory=list)  # Jobs amigáveis
+    
+    # Individual permissions (legacy)
+    friendly_player_ids: List[str] = Field(default_factory=list)
+    friendly_jobs: List[str] = Field(default_factory=list)
+    
+    # Advanced permissions (new)
+    owner_ids: List[str] = Field(default_factory=list)  # Can control this NPC
+    
+    # AI Behavior
+    patrol_route: List[dict] = Field(default_factory=list)  # [{x,y,z}, ...]
+    guard_position: Optional[dict] = None  # {x,y,z} to defend
+    target_id: Optional[str] = None  # Current target player ID
+    target_position: Optional[dict] = None  # Current target position
+    
+    # Status
+    last_command: Optional[str] = None
+    last_command_by: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
@@ -109,41 +162,67 @@ class NPCSpawnRequest(BaseModel):
     gang: GangType
     model: Optional[str] = None
     position: Optional[dict] = None
+    heading: float = 0.0
     quantity: int = 1
     formation: Formation = Formation.CIRCLE
     weapon: Optional[str] = None
     health: int = 100
     armor: int = 0
     accuracy: int = 50
-    friendly_player_ids: Optional[str] = ""  # String com IDs separados por vírgula
-    friendly_jobs: Optional[str] = ""  # String com jobs separados por vírgula
-    vec3_input: Optional[str] = ""  # Campo para colar vec3
+    
+    # Permissions
+    owner_ids: Optional[str] = ""  # String with IDs separated by comma
+    friendly_player_ids: Optional[str] = ""
+    friendly_jobs: Optional[str] = ""
+    npc_group_id: Optional[str] = None  # Assign to advanced group
+    
+    # Convenience
+    vec3_input: Optional[str] = ""
 
 class NPCUpdateRequest(BaseModel):
     health: Optional[int] = None
     armor: Optional[int] = None
     accuracy: Optional[int] = None
     weapon: Optional[str] = None
+    heading: Optional[float] = None
+    owner_ids: Optional[str] = ""
     friendly_player_ids: Optional[str] = ""
     friendly_jobs: Optional[str] = ""
+    npc_group_id: Optional[str] = None
     state: Optional[NPCState] = None
+    guard_position: Optional[dict] = None
 
 class NPCCommand(BaseModel):
     npc_id: str
-    command: str  # follow, stay, attack, defend
+    command: str  # follow, stay, attack, defend, guard, peaceful, combat
+    issued_by: str  # Player ID issuing command
+    target_id: Optional[str] = None  # Target player ID
+    position: Optional[dict] = None  # Target position
+    patrol_route: Optional[List[dict]] = None  # For patrol command
+
+class GroupCommand(BaseModel):
+    group_id: str  # Can be spawn group or advanced group
+    command: str
+    issued_by: str
     target_id: Optional[str] = None
     position: Optional[dict] = None
 
-class GroupCommand(BaseModel):
-    group_id: str
-    command: str
-    target_id: Optional[str] = None
-    position: Optional[dict] = None
+class GroupCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    gang: GangType
+    created_by: str
+    members: List[GroupMember] = Field(default_factory=list)
+    auto_defend: bool = True
+    auto_attack_enemies: bool = True
+    patrol_area: Optional[dict] = None
 
 class ServerStats(BaseModel):
     total_npcs: int
-    active_groups: int
+    active_spawn_groups: int
+    active_npc_groups: int
     gang_distribution: dict
+    group_distribution: dict
     server_performance: dict
 
 # Utility functions
@@ -180,16 +259,53 @@ def parse_vec3(vec3_str: str) -> dict:
     
     return {"x": 0, "y": 0, "z": 0}
 
+def can_control_npc(npc: NPCData, player_id: str) -> tuple[bool, str]:
+    """Check if player can control NPC and return permission level"""
+    player_id = str(player_id)
+    
+    # Check owner permissions (highest level)
+    if player_id in npc.owner_ids:
+        return True, "owner"
+    
+    # Check friendly permissions (basic level)
+    if player_id in npc.friendly_player_ids:
+        return True, "friendly"
+    
+    # TODO: Check advanced group permissions
+    if npc.npc_group_id:
+        # This would check group membership
+        pass
+    
+    return False, "unauthorized"
+
+async def get_npc_group_permissions(group_id: str, player_id: str) -> tuple[bool, str]:
+    """Check if player has permissions in advanced group"""
+    group = await db.npc_groups.find_one({"id": group_id})
+    if not group:
+        return False, "group_not_found"
+    
+    player_id = str(player_id)
+    
+    for member in group.get("members", []):
+        if member["type"] == "player_id" and member["value"] == player_id:
+            return True, member["role"]
+        elif member["type"] == "all" and member["value"] == "all":
+            return True, member["role"]
+        # TODO: Add job/gang checks
+    
+    return False, "not_member"
+
 # API Endpoints
 @api_router.get("/")
 async def root():
-    return {"message": "Gang NPC Manager API", "status": "online", "version": "2.0.0"}
+    return {"message": "Gang NPC Manager API v2.0", "status": "online", "version": "2.0.0"}
 
 @api_router.get("/gangs", response_model=dict)
 async def get_gang_configs():
     """Retorna todas as configurações de gangues disponíveis"""
     return GANG_CONFIG
 
+# NPC Management
 @api_router.post("/npc/spawn", response_model=List[NPCData])
 async def spawn_npcs(request: NPCSpawnRequest):
     """Spawna NPCs individuais ou em grupos"""
@@ -223,14 +339,14 @@ async def spawn_npcs(request: NPCSpawnRequest):
     if request.vec3_input and request.vec3_input.strip():
         parsed_position = parse_vec3(request.vec3_input)
         if parsed_position["x"] == 0 and parsed_position["y"] == 0 and parsed_position["z"] == 0:
-            # Se não conseguiu fazer parse do vec3, usa position original ou padrão
             position = request.position or {"x": 0, "y": 0, "z": 0}
         else:
             position = parsed_position
     else:
         position = request.position or {"x": 0, "y": 0, "z": 0}
     
-    # Parse amigáveis
+    # Parse permissions
+    owner_ids = parse_comma_separated_string(request.owner_ids or "")
     friendly_player_ids = parse_comma_separated_string(request.friendly_player_ids or "")
     friendly_jobs = parse_comma_separated_string(request.friendly_jobs or "")
     
@@ -245,11 +361,14 @@ async def spawn_npcs(request: NPCSpawnRequest):
             gang=request.gang,
             model=request.model,
             position=calculated_position,
+            heading=request.heading,
             group_id=group_id,
+            npc_group_id=request.npc_group_id,
             weapon=request.weapon,
             health=request.health,
             armor=request.armor,
             accuracy=request.accuracy,
+            owner_ids=owner_ids,
             friendly_player_ids=friendly_player_ids,
             friendly_jobs=friendly_jobs
         )
@@ -301,6 +420,9 @@ async def update_npc(npc_id: str, update_data: NPCUpdateRequest):
             raise HTTPException(status_code=400, detail="Mira deve ser entre 0 e 100")
         update_fields["accuracy"] = update_data.accuracy
     
+    if update_data.heading is not None:
+        update_fields["heading"] = update_data.heading
+    
     if update_data.weapon is not None:
         gang_config = GANG_CONFIG[npc["gang"]]
         if update_data.weapon not in gang_config["weapons"]:
@@ -310,7 +432,16 @@ async def update_npc(npc_id: str, update_data: NPCUpdateRequest):
     if update_data.state is not None:
         update_fields["state"] = update_data.state
     
-    # Parse amigáveis se fornecidos
+    if update_data.guard_position is not None:
+        update_fields["guard_position"] = update_data.guard_position
+    
+    if update_data.npc_group_id is not None:
+        update_fields["npc_group_id"] = update_data.npc_group_id
+    
+    # Parse permissions se fornecidas
+    if update_data.owner_ids is not None:
+        update_fields["owner_ids"] = parse_comma_separated_string(update_data.owner_ids)
+    
     if update_data.friendly_player_ids is not None:
         update_fields["friendly_player_ids"] = parse_comma_separated_string(update_data.friendly_player_ids)
     
@@ -331,52 +462,175 @@ async def send_npc_command(command: NPCCommand):
     if not npc:
         raise HTTPException(status_code=404, detail="NPC não encontrado")
     
+    npc_data = NPCData(**npc)
+    
+    # Check permissions
+    can_control, permission_level = can_control_npc(npc_data, command.issued_by)
+    if not can_control:
+        raise HTTPException(status_code=403, detail="Você não tem permissão para controlar este NPC")
+    
     # Atualiza estado do NPC
     update_data = {
-        "last_updated": datetime.utcnow()
+        "last_updated": datetime.utcnow(),
+        "last_command": command.command,
+        "last_command_by": command.issued_by
     }
     
     if command.command == "follow":
         update_data["state"] = NPCState.FOLLOWING
+        update_data["target_id"] = command.issued_by
     elif command.command == "stay":
         update_data["state"] = NPCState.IDLE
+        update_data["target_id"] = None
     elif command.command == "attack":
         update_data["state"] = NPCState.ATTACKING
+        if command.target_id:
+            update_data["target_id"] = command.target_id
+        elif command.position:
+            update_data["target_position"] = command.position
     elif command.command == "defend":
         update_data["state"] = NPCState.DEFENDING
-    
-    if command.position:
-        update_data["position"] = command.position
+        update_data["target_id"] = command.issued_by
+    elif command.command == "guard":
+        update_data["state"] = NPCState.GUARDING
+        if command.position:
+            update_data["guard_position"] = command.position
+    elif command.command == "peaceful":
+        update_data["state"] = NPCState.PEACEFUL
+    elif command.command == "combat":
+        update_data["state"] = NPCState.COMBAT
+    elif command.command == "patrol":
+        update_data["state"] = NPCState.FOLLOWING
+        if command.patrol_route:
+            update_data["patrol_route"] = command.patrol_route
     
     await db.npcs.update_one({"id": command.npc_id}, {"$set": update_data})
     
-    return {"message": f"Comando '{command.command}' enviado para NPC {command.npc_id}"}
+    return {
+        "message": f"Comando '{command.command}' enviado para NPC {command.npc_id}",
+        "permission_level": permission_level
+    }
 
 @api_router.post("/group/command")
 async def send_group_command(command: GroupCommand):
     """Envia comando para um grupo de NPCs"""
-    npcs = await db.npcs.find({"group_id": command.group_id}).to_list(100)
+    npcs = await db.npcs.find({
+        "$or": [
+            {"group_id": command.group_id},
+            {"npc_group_id": command.group_id}
+        ]
+    }).to_list(100)
+    
     if not npcs:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
     
-    # Atualiza estado de todos os NPCs do grupo
+    successful_commands = 0
+    failed_commands = 0
+    
+    for npc in npcs:
+        npc_data = NPCData(**npc)
+        can_control, _ = can_control_npc(npc_data, command.issued_by)
+        
+        if can_control:
+            # Apply command
+            update_data = {
+                "last_updated": datetime.utcnow(),
+                "last_command": command.command,
+                "last_command_by": command.issued_by
+            }
+            
+            if command.command == "follow":
+                update_data["state"] = NPCState.FOLLOWING
+                update_data["target_id"] = command.issued_by
+            elif command.command == "stay":
+                update_data["state"] = NPCState.IDLE
+            elif command.command == "peaceful":
+                update_data["state"] = NPCState.PEACEFUL
+            elif command.command == "combat":
+                update_data["state"] = NPCState.COMBAT
+            
+            await db.npcs.update_one({"id": npc["id"]}, {"$set": update_data})
+            successful_commands += 1
+        else:
+            failed_commands += 1
+    
+    return {
+        "message": f"Comando '{command.command}' enviado para grupo {command.group_id}",
+        "successful": successful_commands,
+        "failed": failed_commands,
+        "total": len(npcs)
+    }
+
+# Advanced Group Management
+@api_router.post("/npc-groups", response_model=NPCGroup)
+async def create_npc_group(request: GroupCreateRequest):
+    """Cria um novo grupo avançado de NPCs"""
+    group = NPCGroup(
+        name=request.name,
+        description=request.description,
+        gang=request.gang,
+        members=request.members,
+        auto_defend=request.auto_defend,
+        auto_attack_enemies=request.auto_attack_enemies,
+        patrol_area=request.patrol_area,
+        created_by=request.created_by
+    )
+    
+    await db.npc_groups.insert_one(group.dict())
+    return group
+
+@api_router.get("/npc-groups", response_model=List[NPCGroup])
+async def get_npc_groups():
+    """Retorna todos os grupos avançados"""
+    groups = await db.npc_groups.find().to_list(100)
+    return [NPCGroup(**group) for group in groups]
+
+@api_router.get("/npc-groups/{group_id}", response_model=NPCGroup)
+async def get_npc_group(group_id: str):
+    """Retorna um grupo específico"""
+    group = await db.npc_groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    return NPCGroup(**group)
+
+@api_router.put("/npc-groups/{group_id}", response_model=NPCGroup)
+async def update_npc_group(group_id: str, request: GroupCreateRequest):
+    """Atualiza um grupo existente"""
+    existing_group = await db.npc_groups.find_one({"id": group_id})
+    if not existing_group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
     update_data = {
+        "name": request.name,
+        "description": request.description,
+        "gang": request.gang,
+        "members": [member.dict() for member in request.members],
+        "auto_defend": request.auto_defend,
+        "auto_attack_enemies": request.auto_attack_enemies,
+        "patrol_area": request.patrol_area,
         "last_updated": datetime.utcnow()
     }
     
-    if command.command == "follow":
-        update_data["state"] = NPCState.FOLLOWING
-    elif command.command == "stay":
-        update_data["state"] = NPCState.IDLE
-    elif command.command == "attack":
-        update_data["state"] = NPCState.ATTACKING
-    elif command.command == "defend":
-        update_data["state"] = NPCState.DEFENDING
-    
-    await db.npcs.update_many({"group_id": command.group_id}, {"$set": update_data})
-    
-    return {"message": f"Comando '{command.command}' enviado para grupo {command.group_id} ({len(npcs)} NPCs)"}
+    await db.npc_groups.update_one({"id": group_id}, {"$set": update_data})
+    updated_group = await db.npc_groups.find_one({"id": group_id})
+    return NPCGroup(**updated_group)
 
+@api_router.delete("/npc-groups/{group_id}")
+async def delete_npc_group(group_id: str):
+    """Remove um grupo avançado"""
+    result = await db.npc_groups.delete_one({"id": group_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    # Remove group reference from NPCs
+    await db.npcs.update_many(
+        {"npc_group_id": group_id},
+        {"$unset": {"npc_group_id": ""}}
+    )
+    
+    return {"message": f"Grupo {group_id} removido"}
+
+# Legacy endpoints
 @api_router.delete("/npc/{npc_id}")
 async def delete_npc(npc_id: str):
     """Remove um NPC específico"""
@@ -394,7 +648,7 @@ async def clear_all_npcs():
 
 @api_router.delete("/group/{group_id}")
 async def delete_group(group_id: str):
-    """Remove um grupo inteiro de NPCs"""
+    """Remove um grupo de spawn"""
     result = await db.npcs.delete_many({"group_id": group_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
@@ -405,6 +659,7 @@ async def delete_group(group_id: str):
 async def get_server_stats():
     """Retorna estatísticas do servidor"""
     total_npcs = await db.npcs.count_documents({})
+    total_npc_groups = await db.npc_groups.count_documents({})
     
     # Contagem por gangue
     gang_pipeline = [
@@ -413,24 +668,32 @@ async def get_server_stats():
     gang_stats = await db.npcs.aggregate(gang_pipeline).to_list(100)
     gang_distribution = {stat["_id"]: stat["count"] for stat in gang_stats}
     
-    # Contagem de grupos
-    group_pipeline = [
+    # Contagem de grupos de spawn
+    spawn_group_pipeline = [
         {"$match": {"group_id": {"$ne": None}}},
         {"$group": {"_id": "$group_id"}}
     ]
-    groups = await db.npcs.aggregate(group_pipeline).to_list(100)
-    active_groups = len(groups)
+    spawn_groups = await db.npcs.aggregate(spawn_group_pipeline).to_list(100)
+    
+    # Contagem de grupos avançados
+    npc_group_pipeline = [
+        {"$group": {"_id": "$gang", "count": {"$sum": 1}}}
+    ]
+    npc_group_stats = await db.npc_groups.aggregate(npc_group_pipeline).to_list(100)
+    group_distribution = {stat["_id"]: stat["count"] for stat in npc_group_stats}
     
     return ServerStats(
         total_npcs=total_npcs,
-        active_groups=active_groups,
+        active_spawn_groups=len(spawn_groups),
+        active_npc_groups=total_npc_groups,
         gang_distribution=gang_distribution,
+        group_distribution=group_distribution,
         server_performance={"memory_usage": "N/A", "cpu_usage": "N/A"}
     )
 
 @api_router.get("/groups")
-async def get_groups():
-    """Retorna todos os grupos ativos"""
+async def get_spawn_groups():
+    """Retorna todos os grupos de spawn ativos"""
     pipeline = [
         {"$match": {"group_id": {"$ne": None}}},
         {"$group": {
@@ -442,6 +705,61 @@ async def get_groups():
     ]
     groups = await db.npcs.aggregate(pipeline).to_list(100)
     return groups
+
+# Player Control Endpoints (for FiveM integration)
+@api_router.get("/player/{player_id}/npcs")
+async def get_player_npcs(player_id: str):
+    """Retorna NPCs que o player pode controlar"""
+    npcs = await db.npcs.find({
+        "$or": [
+            {"owner_ids": str(player_id)},
+            {"friendly_player_ids": str(player_id)}
+        ]
+    }).to_list(100)
+    
+    result = []
+    for npc in npcs:
+        npc_data = NPCData(**npc)
+        can_control, permission_level = can_control_npc(npc_data, player_id)
+        if can_control:
+            result.append({
+                "npc": npc_data,
+                "permission_level": permission_level
+            })
+    
+    return result
+
+@api_router.get("/player/{player_id}/groups")
+async def get_player_groups(player_id: str):
+    """Retorna grupos que o player pode controlar"""
+    groups = await db.npc_groups.find({
+        "members": {
+            "$elemMatch": {
+                "$or": [
+                    {"type": "player_id", "value": str(player_id)},
+                    {"type": "all", "value": "all"}
+                ]
+            }
+        }
+    }).to_list(100)
+    
+    result = []
+    for group in groups:
+        # Find permission level
+        permission_level = "none"
+        for member in group.get("members", []):
+            if (member["type"] == "player_id" and member["value"] == str(player_id)) or \
+               (member["type"] == "all" and member["value"] == "all"):
+                permission_level = member["role"]
+                break
+        
+        if permission_level != "none":
+            result.append({
+                "group": NPCGroup(**group),
+                "permission_level": permission_level
+            })
+    
+    return result
 
 def calculate_formation_position(center_pos: dict, index: int, formation: Formation, total: int) -> dict:
     """Calcula posição baseada na formação"""
