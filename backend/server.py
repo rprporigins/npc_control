@@ -10,6 +10,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime
 from enum import Enum
+import re
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -40,37 +41,37 @@ GANG_CONFIG = {
         "name": "Ballas",
         "color": "#800080",
         "models": ["g_m_y_ballaseast_01", "g_m_y_ballasorig_01", "g_m_y_ballasouth_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_MACHETE"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_MACHETE", "WEAPON_PUMPSHOTGUN"]
     },
     GangType.GROVE_STREET: {
         "name": "Grove Street Families",
         "color": "#00FF00",
         "models": ["g_m_y_famca_01", "g_m_y_famdnf_01", "g_m_y_famfor_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_KNIFE"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_KNIFE", "WEAPON_ASSAULTRIFLE"]
     },
     GangType.VAGOS: {
         "name": "Los Santos Vagos",
         "color": "#FFFF00",
         "models": ["g_m_y_mexgang_01", "g_m_y_mexgoon_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SAWNOFFSHOTGUN"]
     },
     GangType.LOST_MC: {
         "name": "Lost MC",
         "color": "#FF0000",
         "models": ["g_m_y_lost_01", "g_m_y_lost_02", "g_m_y_lost_03"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_SAWNOFFSHOTGUN", "WEAPON_KNIFE"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SAWNOFFSHOTGUN", "WEAPON_KNIFE", "WEAPON_SMG"]
     },
     GangType.TRIADS: {
         "name": "Triads",
         "color": "#0000FF",
         "models": ["g_m_m_chigoon_01", "g_m_m_chigoon_02", "g_m_m_chiboss_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SWITCHBLADE"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SWITCHBLADE", "WEAPON_COMBATPISTOL"]
     },
     GangType.ARMENIAN_MAFIA: {
         "name": "Armenian Mafia",
         "color": "#4B0082",
         "models": ["g_m_m_armboss_01", "g_m_m_armgoon_01", "g_m_m_armlieut_01"],
-        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_COMBATPISTOL"]
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_COMBATPISTOL", "WEAPON_ASSAULTRIFLE"]
     }
 }
 
@@ -97,7 +98,10 @@ class NPCData(BaseModel):
     group_id: Optional[str] = None
     health: int = 100
     armor: int = 0
+    accuracy: int = 50  # Mira/precisão (0-100)
     weapon: Optional[str] = None
+    friendly_player_ids: List[str] = Field(default_factory=list)  # IDs do servidor
+    friendly_jobs: List[str] = Field(default_factory=list)  # Jobs amigáveis
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
@@ -108,6 +112,21 @@ class NPCSpawnRequest(BaseModel):
     quantity: int = 1
     formation: Formation = Formation.CIRCLE
     weapon: Optional[str] = None
+    health: int = 100
+    armor: int = 0
+    accuracy: int = 50
+    friendly_player_ids: Optional[str] = ""  # String com IDs separados por vírgula
+    friendly_jobs: Optional[str] = ""  # String com jobs separados por vírgula
+    vec3_input: Optional[str] = ""  # Campo para colar vec3
+
+class NPCUpdateRequest(BaseModel):
+    health: Optional[int] = None
+    armor: Optional[int] = None
+    accuracy: Optional[int] = None
+    weapon: Optional[str] = None
+    friendly_player_ids: Optional[str] = ""
+    friendly_jobs: Optional[str] = ""
+    state: Optional[NPCState] = None
 
 class NPCCommand(BaseModel):
     npc_id: str
@@ -127,10 +146,40 @@ class ServerStats(BaseModel):
     gang_distribution: dict
     server_performance: dict
 
+# Utility functions
+def parse_comma_separated_string(input_str: str) -> List[str]:
+    """Parse string separada por vírgulas e retorna lista limpa"""
+    if not input_str or not input_str.strip():
+        return []
+    return [item.strip() for item in input_str.split(",") if item.strip()]
+
+def parse_vec3(vec3_str: str) -> dict:
+    """Parse vec3 de qualquer formato para dict {x, y, z}"""
+    if not vec3_str or not vec3_str.strip():
+        return {"x": 0, "y": 0, "z": 0}
+    
+    # Remove espaços e converte para lowercase
+    cleaned = vec3_str.strip().lower()
+    
+    # Extrai números (incluindo negativos e decimais)
+    numbers = re.findall(r'-?\d+\.?\d*', cleaned)
+    
+    if len(numbers) >= 3:
+        try:
+            return {
+                "x": float(numbers[0]),
+                "y": float(numbers[1]),
+                "z": float(numbers[2])
+            }
+        except ValueError:
+            pass
+    
+    return {"x": 0, "y": 0, "z": 0}
+
 # API Endpoints
 @api_router.get("/")
 async def root():
-    return {"message": "Gang NPC Manager API", "status": "online", "version": "1.0.0"}
+    return {"message": "Gang NPC Manager API", "status": "online", "version": "2.0.0"}
 
 @api_router.get("/gangs", response_model=dict)
 async def get_gang_configs():
@@ -143,6 +192,15 @@ async def spawn_npcs(request: NPCSpawnRequest):
     if request.quantity < 1 or request.quantity > 20:
         raise HTTPException(status_code=400, detail="Quantidade deve ser entre 1 e 20")
     
+    if request.health < 1 or request.health > 200:
+        raise HTTPException(status_code=400, detail="Vida deve ser entre 1 e 200")
+    
+    if request.armor < 0 or request.armor > 100:
+        raise HTTPException(status_code=400, detail="Armadura deve ser entre 0 e 100")
+    
+    if request.accuracy < 0 or request.accuracy > 100:
+        raise HTTPException(status_code=400, detail="Mira deve ser entre 0 e 100")
+    
     gang_config = GANG_CONFIG[request.gang]
     
     # Seleciona modelo se não especificado
@@ -151,19 +209,45 @@ async def spawn_npcs(request: NPCSpawnRequest):
     elif request.model not in gang_config["models"]:
         raise HTTPException(status_code=400, detail="Modelo inválido para esta gangue")
     
+    # Seleciona arma se não especificada
+    if not request.weapon:
+        request.weapon = gang_config["weapons"][0]
+    elif request.weapon not in gang_config["weapons"]:
+        raise HTTPException(status_code=400, detail="Arma inválida para esta gangue")
+    
+    # Parse vec3 se fornecido, senão usa position
+    if request.vec3_input and request.vec3_input.strip():
+        parsed_position = parse_vec3(request.vec3_input)
+        if parsed_position["x"] == 0 and parsed_position["y"] == 0 and parsed_position["z"] == 0:
+            # Se não conseguiu fazer parse do vec3, usa position original
+            position = request.position
+        else:
+            position = parsed_position
+    else:
+        position = request.position
+    
+    # Parse amigáveis
+    friendly_player_ids = parse_comma_separated_string(request.friendly_player_ids or "")
+    friendly_jobs = parse_comma_separated_string(request.friendly_jobs or "")
+    
     spawned_npcs = []
     group_id = str(uuid.uuid4()) if request.quantity > 1 else None
     
     for i in range(request.quantity):
         # Calcula posição baseada na formação
-        position = calculate_formation_position(request.position, i, request.formation, request.quantity)
+        calculated_position = calculate_formation_position(position, i, request.formation, request.quantity)
         
         npc = NPCData(
             gang=request.gang,
             model=request.model,
-            position=position,
+            position=calculated_position,
             group_id=group_id,
-            weapon=request.weapon or gang_config["weapons"][0]
+            weapon=request.weapon,
+            health=request.health,
+            armor=request.armor,
+            accuracy=request.accuracy,
+            friendly_player_ids=friendly_player_ids,
+            friendly_jobs=friendly_jobs
         )
         
         # Salva no banco
@@ -185,6 +269,56 @@ async def get_npc(npc_id: str):
     if not npc:
         raise HTTPException(status_code=404, detail="NPC não encontrado")
     return NPCData(**npc)
+
+@api_router.put("/npcs/{npc_id}", response_model=NPCData)
+async def update_npc(npc_id: str, update_data: NPCUpdateRequest):
+    """Atualiza dados de um NPC específico"""
+    npc = await db.npcs.find_one({"id": npc_id})
+    if not npc:
+        raise HTTPException(status_code=404, detail="NPC não encontrado")
+    
+    # Prepara dados para atualização
+    update_fields = {
+        "last_updated": datetime.utcnow()
+    }
+    
+    if update_data.health is not None:
+        if update_data.health < 1 or update_data.health > 200:
+            raise HTTPException(status_code=400, detail="Vida deve ser entre 1 e 200")
+        update_fields["health"] = update_data.health
+    
+    if update_data.armor is not None:
+        if update_data.armor < 0 or update_data.armor > 100:
+            raise HTTPException(status_code=400, detail="Armadura deve ser entre 0 e 100")
+        update_fields["armor"] = update_data.armor
+    
+    if update_data.accuracy is not None:
+        if update_data.accuracy < 0 or update_data.accuracy > 100:
+            raise HTTPException(status_code=400, detail="Mira deve ser entre 0 e 100")
+        update_fields["accuracy"] = update_data.accuracy
+    
+    if update_data.weapon is not None:
+        gang_config = GANG_CONFIG[npc["gang"]]
+        if update_data.weapon not in gang_config["weapons"]:
+            raise HTTPException(status_code=400, detail="Arma inválida para esta gangue")
+        update_fields["weapon"] = update_data.weapon
+    
+    if update_data.state is not None:
+        update_fields["state"] = update_data.state
+    
+    # Parse amigáveis se fornecidos
+    if update_data.friendly_player_ids is not None:
+        update_fields["friendly_player_ids"] = parse_comma_separated_string(update_data.friendly_player_ids)
+    
+    if update_data.friendly_jobs is not None:
+        update_fields["friendly_jobs"] = parse_comma_separated_string(update_data.friendly_jobs)
+    
+    # Atualiza no banco
+    await db.npcs.update_one({"id": npc_id}, {"$set": update_fields})
+    
+    # Retorna NPC atualizado
+    updated_npc = await db.npcs.find_one({"id": npc_id})
+    return NPCData(**updated_npc)
 
 @api_router.post("/npc/command")
 async def send_npc_command(command: NPCCommand):
