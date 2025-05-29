@@ -454,6 +454,7 @@ function OpenNPCQuickMenu(entity)
             icon = 'fas fa-walking',
             onSelect = function()
                 ExecuteNPCCommand(npcId, 'follow')
+                lib.hideContext()
             end
         },
         {
@@ -462,6 +463,7 @@ function OpenNPCQuickMenu(entity)
             icon = 'fas fa-stop',
             onSelect = function()
                 ExecuteNPCCommand(npcId, 'stay')
+                lib.hideContext()
             end
         },
         {
@@ -470,6 +472,7 @@ function OpenNPCQuickMenu(entity)
             icon = 'fas fa-shield',
             onSelect = function()
                 ExecuteNPCCommand(npcId, 'guard')
+                lib.hideContext()
             end
         },
         {
@@ -478,6 +481,7 @@ function OpenNPCQuickMenu(entity)
             icon = 'fas fa-peace',
             onSelect = function()
                 ExecuteNPCCommand(npcId, 'peaceful')
+                lib.hideContext()
             end
         },
         {
@@ -486,6 +490,7 @@ function OpenNPCQuickMenu(entity)
             icon = 'fas fa-sword',
             onSelect = function()
                 ExecuteNPCCommand(npcId, 'combat')
+                lib.hideContext()
             end
         }
     }
@@ -494,6 +499,9 @@ function OpenNPCQuickMenu(entity)
         id = 'gang_npc_quick_menu',
         title = '⚡ Controle Rápido',
         position = 'top-left',
+        onExit = function()
+            -- Quick menu doesn't affect main menu state
+        end,
         options = options
     })
     
