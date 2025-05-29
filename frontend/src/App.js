@@ -258,8 +258,15 @@ function App() {
     if (!vec3Input.trim()) return;
     
     try {
+      let cleaned = vec3Input.trim().toLowerCase();
+      
+      // Remove "vec3" do início se existir
+      if (cleaned.startsWith('vec3')) {
+        cleaned = cleaned.substring(4);
+      }
+      
       // Extract numbers (including negative and decimals) from the string
-      const numbers = vec3Input.match(/-?\d+(?:\.\d+)?/g);
+      const numbers = cleaned.match(/-?\d+(?:\.\d+)?/g);
       if (numbers && numbers.length >= 3) {
         setSpawnForm(prev => ({
           ...prev,
