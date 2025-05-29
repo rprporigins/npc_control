@@ -567,14 +567,22 @@ AddEventHandler('gang_npc:openAdminPanel', function(data)
     })
 end)
 
--- Close menu handler
+-- Close menu handler and state fix
 AddEventHandler('onResourceStop', function(resourceName)
     if GetCurrentResourceName() == resourceName then
         if isMenuOpen then
             lib.hideContext()
             isMenuOpen = false
         end
+        SetNuiFocus(false, false)
     end
+end)
+
+-- Add event to force close menus when needed
+RegisterNetEvent('gang_npc:forceCloseMenu')
+AddEventHandler('gang_npc:forceCloseMenu', function()
+    lib.hideContext()
+    isMenuOpen = false
 end)
 
 -- Exports
