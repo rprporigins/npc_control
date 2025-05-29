@@ -152,13 +152,14 @@ function App() {
     if (window.confirm('Tem certeza que deseja remover TODOS os NPCs?')) {
       setLoading(true);
       try {
-        await axios.delete(`${API}/npcs/clear`);
-        console.log('Todos os NPCs foram removidos!');
-        await loadNPCs();
-        await loadGroups();
-        await loadStats();
+        const response = await axios.delete(`${API}/npcs/clear`);
+        console.log('Todos os NPCs foram removidos!', response.data.message);
+        alert(`✅ ${response.data.message}`);
+        // Força a atualização de todos os dados
+        await Promise.all([loadNPCs(), loadGroups(), loadStats()]);
       } catch (error) {
         console.error('Erro ao limpar NPCs:', error);
+        alert('❌ Erro ao limpar NPCs: ' + error.response?.data?.detail);
       } finally {
         setLoading(false);
       }
