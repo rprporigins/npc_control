@@ -43,6 +43,7 @@ function App() {
   const [gangConfigs, setGangConfigs] = useState({});
   const [npcs, setNpcs] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [advancedGroups, setAdvancedGroups] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
 
