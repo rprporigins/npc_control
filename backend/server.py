@@ -108,7 +108,7 @@ class NPCData(BaseModel):
 class NPCSpawnRequest(BaseModel):
     gang: GangType
     model: Optional[str] = None
-    position: dict
+    position: Optional[dict] = None
     quantity: int = 1
     formation: Formation = Formation.CIRCLE
     weapon: Optional[str] = None
