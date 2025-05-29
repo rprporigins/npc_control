@@ -147,7 +147,7 @@ function BuildNPCControlMenu(data)
         end
     end
     
-    -- Nearby NPCs section
+    -- Get nearby NPCs and add to menu
     lib.callback('gang_npc:getNearbyNPCs', false, function(nearby)
         if nearby and #nearby > 0 then
             table.insert(options, {
@@ -170,7 +170,7 @@ function BuildNPCControlMenu(data)
             end
         end
         
-        -- Add options if none exist
+        -- Add message if no options exist
         if #options <= 1 then
             table.insert(options, {
                 title = '❌ Nenhum NPC Disponível',
@@ -179,16 +179,30 @@ function BuildNPCControlMenu(data)
             })
         end
         
-        -- Show menu
+        -- Add refresh option
+        table.insert(options, {
+            title = '🔄 Atualizar Lista',
+            description = 'Recarregar lista de NPCs',
+            icon = 'fas fa-sync',
+            onSelect = function()
+                isMenuOpen = false
+                OpenNPCControlMenu()
+            end
+        })
+        
+        -- Show menu with proper cleanup
         lib.registerContext({
             id = 'gang_npc_main_menu',
             title = '🎮 Gang NPC Manager',
             position = 'top-left',
+            onExit = function()
+                isMenuOpen = false
+            end,
             options = options
         })
         
         lib.showContext('gang_npc_main_menu')
-    end, GetEntityCoords(PlayerPedId()), Config.NPC.MaxDistance)
+    end, GetEntityCoords(PlayerPedId()), Config.NPC.MaxDistance or 50.0)
 end
 
 -- NPC Command Menu
