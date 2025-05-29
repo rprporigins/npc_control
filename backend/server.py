@@ -219,12 +219,12 @@ async def spawn_npcs(request: NPCSpawnRequest):
     if request.vec3_input and request.vec3_input.strip():
         parsed_position = parse_vec3(request.vec3_input)
         if parsed_position["x"] == 0 and parsed_position["y"] == 0 and parsed_position["z"] == 0:
-            # Se não conseguiu fazer parse do vec3, usa position original
-            position = request.position
+            # Se não conseguiu fazer parse do vec3, usa position original ou padrão
+            position = request.position or {"x": 0, "y": 0, "z": 0}
         else:
             position = parsed_position
     else:
-        position = request.position
+        position = request.position or {"x": 0, "y": 0, "z": 0}
     
     # Parse amigáveis
     friendly_player_ids = parse_comma_separated_string(request.friendly_player_ids or "")
