@@ -137,12 +137,13 @@ function App() {
     setLoading(true);
 
     try {
-      await axios.post(`${API}/npc/command`, commandForm);
-      console.log('Comando enviado com sucesso!');
+      const response = await axios.post(`${API}/npc/command`, commandForm);
+      console.log('Comando enviado com sucesso!', response.data.message);
+      alert(`✅ ${response.data.message}`);
       await loadNPCs();
     } catch (error) {
       console.error('Erro ao enviar comando:', error);
-      alert('Erro ao enviar comando: ' + error.response?.data?.detail);
+      alert('❌ Erro ao enviar comando: ' + error.response?.data?.detail);
     } finally {
       setLoading(false);
     }
