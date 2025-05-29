@@ -158,10 +158,14 @@ def parse_vec3(vec3_str: str) -> dict:
     if not vec3_str or not vec3_str.strip():
         return {"x": 0, "y": 0, "z": 0}
     
-    # Remove espaços e converte para lowercase
+    # Remove prefixos como "vec3" e converte para lowercase
     cleaned = vec3_str.strip().lower()
     
-    # Extrai números (incluindo negativos e decimais) - versão melhorada
+    # Remove "vec3(" do início se existir
+    if cleaned.startswith('vec3'):
+        cleaned = cleaned[4:]  # Remove "vec3"
+    
+    # Extrai números (incluindo negativos e decimais)
     numbers = re.findall(r'-?\d+(?:\.\d+)?', cleaned)
     
     if len(numbers) >= 3:
