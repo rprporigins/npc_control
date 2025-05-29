@@ -142,6 +142,15 @@ function App() {
     }
   };
 
+  const loadAdvancedGroups = async () => {
+    try {
+      const response = await axios.get(`${API}/npc-groups`);
+      setAdvancedGroups(response.data);
+    } catch (error) {
+      console.error('Erro ao carregar grupos avançados:', error);
+    }
+  };
+
   const loadStats = async () => {
     try {
       const response = await axios.get(`${API}/stats`);
