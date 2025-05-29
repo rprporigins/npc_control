@@ -323,7 +323,8 @@ function App() {
             {[
               { id: 'spawn', name: 'Spawnar NPCs', icon: '➕' },
               { id: 'manage', name: 'Gerenciar NPCs', icon: '⚙️' },
-              { id: 'groups', name: 'Grupos', icon: '👥' },
+              { id: 'groups', name: 'Grupos Spawn', icon: '👥' },
+              { id: 'advanced', name: 'Grupos Avançados', icon: '🎯' },
               { id: 'stats', name: 'Estatísticas', icon: '📊' }
             ].map(tab => (
               <button
