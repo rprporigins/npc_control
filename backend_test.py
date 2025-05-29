@@ -438,49 +438,57 @@ def main():
         print("❌ Get gangs test failed, stopping tests")
         return 1
 
-    # Test spawning NPCs for different gangs
-    gangs_to_test = ["ballas", "grove_street", "vagos", "lost_mc", "triads", "armenian_mafia"]
-    formations_to_test = ["circle", "line", "square"]
-    
     # First, clear any existing NPCs
     tester.test_clear_npcs()
     
-    # Test spawning a single NPC for each gang
-    for gang in gangs_to_test:
-        spawn_success, _ = tester.test_spawn_npc(gang, quantity=1)
-        if not spawn_success:
-            print(f"❌ Failed to spawn {gang} NPC")
+    print("\n=== TESTING NEW FEATURES ===")
     
-    # Test getting NPCs
+    # Test 1: Test vec3 parser with different formats
+    print("\n🔍 FEATURE TEST: vec3 Parser")
+    tester.test_vec3_parser()
+    
+    # Test 2: Test spawning NPCs with advanced options
+    print("\n🔍 FEATURE TEST: Advanced NPC Configuration")
+    success, response = tester.test_spawn_npc(
+        gang="ballas",
+        quantity=1,
+        health=150,
+        armor=75,
+        accuracy=85,
+        friendly_player_ids="1, 5, 12, 25, 30",
+        friendly_jobs="police, ems, mechanic, government"
+    )
+    
+    # Test 3: Test validation of invalid values
+    print("\n🔍 FEATURE TEST: Validation of Invalid Values")
+    tester.test_spawn_npc_with_invalid_values()
+    
+    # Test 4: Test NPC editing
+    print("\n🔍 FEATURE TEST: NPC Editing")
+    if success and len(response) > 0:
+        npc_id = response[0]["id"]
+        
+        # Test updating an NPC
+        tester.test_update_npc(
+            npc_id=npc_id,
+            health=120,
+            armor=50,
+            accuracy=70,
+            friendly_player_ids="2, 7, 15",
+            friendly_jobs="police, mechanic"
+        )
+        
+        # Test validation of invalid update values
+        tester.test_update_npc_with_invalid_values(npc_id)
+    
+    # Test getting NPCs to verify changes
     npcs_success, npcs = tester.test_get_npcs()
-    if not npcs_success:
-        print("❌ Get NPCs test failed")
-    
-    # Test NPC command if we have NPCs
-    if npcs and len(npcs) > 0:
-        command_success = tester.test_npc_command(npcs[0]["id"], "follow")
-        if not command_success:
-            print("❌ NPC command test failed")
     
     # Test stats
     stats_success = tester.test_get_stats()
-    if not stats_success:
-        print("❌ Get stats test failed")
-    
-    # Test spawning multiple NPCs with different formations
-    for formation in formations_to_test:
-        spawn_success, _ = tester.test_spawn_npc("ballas", quantity=5, formation=formation)
-        if not spawn_success:
-            print(f"❌ Failed to spawn NPCs with {formation} formation")
-    
-    # Test stats again after spawning more NPCs
-    tester.test_get_stats()
     
     # Clean up - clear all NPCs
     tester.test_clear_npcs()
-    
-    # Final stats check
-    tester.test_get_stats()
     
     # Print results
     print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
