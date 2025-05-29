@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,10 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import datetime
-
+from enum import Enum
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -20,37 +20,329 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
-app = FastAPI()
+app = FastAPI(title="Gang NPC Manager API", description="Sistema de gerenciamento de NPCs para FiveM")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Gang Types
+class GangType(str, Enum):
+    BALLAS = "ballas"
+    GROVE_STREET = "grove_street"
+    VAGOS = "vagos"
+    LOST_MC = "lost_mc"
+    TRIADS = "triads"
+    ARMENIAN_MAFIA = "armenian_mafia"
 
-# Define Models
-class StatusCheck(BaseModel):
+# Gang configurations
+GANG_CONFIG = {
+    GangType.BALLAS: {
+        "name": "Ballas",
+        "color": "#800080",
+        "models": ["g_m_y_ballaseast_01", "g_m_y_ballasorig_01", "g_m_y_ballasouth_01"],
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_MACHETE"]
+    },
+    GangType.GROVE_STREET: {
+        "name": "Grove Street Families",
+        "color": "#00FF00",
+        "models": ["g_m_y_famca_01", "g_m_y_famdnf_01", "g_m_y_famfor_01"],
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_KNIFE"]
+    },
+    GangType.VAGOS: {
+        "name": "Los Santos Vagos",
+        "color": "#FFFF00",
+        "models": ["g_m_y_mexgang_01", "g_m_y_mexgoon_01"],
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG"]
+    },
+    GangType.LOST_MC: {
+        "name": "Lost MC",
+        "color": "#FF0000",
+        "models": ["g_m_y_lost_01", "g_m_y_lost_02", "g_m_y_lost_03"],
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SAWNOFFSHOTGUN", "WEAPON_KNIFE"]
+    },
+    GangType.TRIADS: {
+        "name": "Triads",
+        "color": "#0000FF",
+        "models": ["g_m_m_chigoon_01", "g_m_m_chigoon_02", "g_m_m_chiboss_01"],
+        "weapons": ["WEAPON_PISTOL", "WEAPON_MICROSMG", "WEAPON_SWITCHBLADE"]
+    },
+    GangType.ARMENIAN_MAFIA: {
+        "name": "Armenian Mafia",
+        "color": "#4B0082",
+        "models": ["g_m_m_armboss_01", "g_m_m_armgoon_01", "g_m_m_armlieut_01"],
+        "weapons": ["WEAPON_PISTOL", "WEAPON_SMG", "WEAPON_COMBATPISTOL"]
+    }
+}
+
+# NPC Models
+class NPCState(str, Enum):
+    IDLE = "idle"
+    FOLLOWING = "following"
+    ATTACKING = "attacking"
+    DEFENDING = "defending"
+
+class Formation(str, Enum):
+    CIRCLE = "circle"
+    LINE = "line"
+    SQUARE = "square"
+    SCATTERED = "scattered"
+
+# Data Models
+class NPCData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    gang: GangType
+    model: str
+    position: dict  # {x, y, z}
+    state: NPCState = NPCState.IDLE
+    group_id: Optional[str] = None
+    health: int = 100
+    armor: int = 0
+    weapon: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class NPCSpawnRequest(BaseModel):
+    gang: GangType
+    model: Optional[str] = None
+    position: dict
+    quantity: int = 1
+    formation: Formation = Formation.CIRCLE
+    weapon: Optional[str] = None
 
-# Add your routes to the router instead of directly to app
+class NPCCommand(BaseModel):
+    npc_id: str
+    command: str  # follow, stay, attack, defend
+    target_id: Optional[str] = None
+    position: Optional[dict] = None
+
+class GroupCommand(BaseModel):
+    group_id: str
+    command: str
+    target_id: Optional[str] = None
+    position: Optional[dict] = None
+
+class ServerStats(BaseModel):
+    total_npcs: int
+    active_groups: int
+    gang_distribution: dict
+    server_performance: dict
+
+# API Endpoints
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Gang NPC Manager API", "status": "online", "version": "1.0.0"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
+@api_router.get("/gangs", response_model=dict)
+async def get_gang_configs():
+    """Retorna todas as configurações de gangues disponíveis"""
+    return GANG_CONFIG
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+@api_router.post("/npc/spawn", response_model=List[NPCData])
+async def spawn_npcs(request: NPCSpawnRequest):
+    """Spawna NPCs individuais ou em grupos"""
+    if request.quantity < 1 or request.quantity > 20:
+        raise HTTPException(status_code=400, detail="Quantidade deve ser entre 1 e 20")
+    
+    gang_config = GANG_CONFIG[request.gang]
+    
+    # Seleciona modelo se não especificado
+    if not request.model:
+        request.model = gang_config["models"][0]
+    elif request.model not in gang_config["models"]:
+        raise HTTPException(status_code=400, detail="Modelo inválido para esta gangue")
+    
+    spawned_npcs = []
+    group_id = str(uuid.uuid4()) if request.quantity > 1 else None
+    
+    for i in range(request.quantity):
+        # Calcula posição baseada na formação
+        position = calculate_formation_position(request.position, i, request.formation, request.quantity)
+        
+        npc = NPCData(
+            gang=request.gang,
+            model=request.model,
+            position=position,
+            group_id=group_id,
+            weapon=request.weapon or gang_config["weapons"][0]
+        )
+        
+        # Salva no banco
+        await db.npcs.insert_one(npc.dict())
+        spawned_npcs.append(npc)
+    
+    return spawned_npcs
+
+@api_router.get("/npcs", response_model=List[NPCData])
+async def get_all_npcs():
+    """Retorna todos os NPCs ativos"""
+    npcs = await db.npcs.find().to_list(1000)
+    return [NPCData(**npc) for npc in npcs]
+
+@api_router.get("/npcs/{npc_id}", response_model=NPCData)
+async def get_npc(npc_id: str):
+    """Retorna dados de um NPC específico"""
+    npc = await db.npcs.find_one({"id": npc_id})
+    if not npc:
+        raise HTTPException(status_code=404, detail="NPC não encontrado")
+    return NPCData(**npc)
+
+@api_router.post("/npc/command")
+async def send_npc_command(command: NPCCommand):
+    """Envia comando para um NPC específico"""
+    npc = await db.npcs.find_one({"id": command.npc_id})
+    if not npc:
+        raise HTTPException(status_code=404, detail="NPC não encontrado")
+    
+    # Atualiza estado do NPC
+    update_data = {
+        "last_updated": datetime.utcnow()
+    }
+    
+    if command.command == "follow":
+        update_data["state"] = NPCState.FOLLOWING
+    elif command.command == "stay":
+        update_data["state"] = NPCState.IDLE
+    elif command.command == "attack":
+        update_data["state"] = NPCState.ATTACKING
+    elif command.command == "defend":
+        update_data["state"] = NPCState.DEFENDING
+    
+    if command.position:
+        update_data["position"] = command.position
+    
+    await db.npcs.update_one({"id": command.npc_id}, {"$set": update_data})
+    
+    return {"message": f"Comando '{command.command}' enviado para NPC {command.npc_id}"}
+
+@api_router.post("/group/command")
+async def send_group_command(command: GroupCommand):
+    """Envia comando para um grupo de NPCs"""
+    npcs = await db.npcs.find({"group_id": command.group_id}).to_list(100)
+    if not npcs:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    # Atualiza estado de todos os NPCs do grupo
+    update_data = {
+        "last_updated": datetime.utcnow()
+    }
+    
+    if command.command == "follow":
+        update_data["state"] = NPCState.FOLLOWING
+    elif command.command == "stay":
+        update_data["state"] = NPCState.IDLE
+    elif command.command == "attack":
+        update_data["state"] = NPCState.ATTACKING
+    elif command.command == "defend":
+        update_data["state"] = NPCState.DEFENDING
+    
+    await db.npcs.update_many({"group_id": command.group_id}, {"$set": update_data})
+    
+    return {"message": f"Comando '{command.command}' enviado para grupo {command.group_id} ({len(npcs)} NPCs)"}
+
+@api_router.delete("/npc/{npc_id}")
+async def delete_npc(npc_id: str):
+    """Remove um NPC específico"""
+    result = await db.npcs.delete_one({"id": npc_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="NPC não encontrado")
+    
+    return {"message": f"NPC {npc_id} removido"}
+
+@api_router.delete("/npcs/clear")
+async def clear_all_npcs():
+    """Remove todos os NPCs"""
+    result = await db.npcs.delete_many({})
+    return {"message": f"{result.deleted_count} NPCs removidos"}
+
+@api_router.delete("/group/{group_id}")
+async def delete_group(group_id: str):
+    """Remove um grupo inteiro de NPCs"""
+    result = await db.npcs.delete_many({"group_id": group_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    return {"message": f"Grupo {group_id} removido ({result.deleted_count} NPCs)"}
+
+@api_router.get("/stats", response_model=ServerStats)
+async def get_server_stats():
+    """Retorna estatísticas do servidor"""
+    total_npcs = await db.npcs.count_documents({})
+    
+    # Contagem por gangue
+    gang_pipeline = [
+        {"$group": {"_id": "$gang", "count": {"$sum": 1}}}
+    ]
+    gang_stats = await db.npcs.aggregate(gang_pipeline).to_list(100)
+    gang_distribution = {stat["_id"]: stat["count"] for stat in gang_stats}
+    
+    # Contagem de grupos
+    group_pipeline = [
+        {"$match": {"group_id": {"$ne": None}}},
+        {"$group": {"_id": "$group_id"}}
+    ]
+    groups = await db.npcs.aggregate(group_pipeline).to_list(100)
+    active_groups = len(groups)
+    
+    return ServerStats(
+        total_npcs=total_npcs,
+        active_groups=active_groups,
+        gang_distribution=gang_distribution,
+        server_performance={"memory_usage": "N/A", "cpu_usage": "N/A"}
+    )
+
+@api_router.get("/groups")
+async def get_groups():
+    """Retorna todos os grupos ativos"""
+    pipeline = [
+        {"$match": {"group_id": {"$ne": None}}},
+        {"$group": {
+            "_id": "$group_id",
+            "gang": {"$first": "$gang"},
+            "count": {"$sum": 1},
+            "created_at": {"$min": "$created_at"}
+        }}
+    ]
+    groups = await db.npcs.aggregate(pipeline).to_list(100)
+    return groups
+
+def calculate_formation_position(center_pos: dict, index: int, formation: Formation, total: int) -> dict:
+    """Calcula posição baseada na formação"""
+    import math
+    
+    x, y, z = center_pos["x"], center_pos["y"], center_pos["z"]
+    
+    if formation == Formation.CIRCLE:
+        angle = (2 * math.pi * index) / total
+        radius = 2.0
+        return {
+            "x": x + radius * math.cos(angle),
+            "y": y + radius * math.sin(angle),
+            "z": z
+        }
+    elif formation == Formation.LINE:
+        spacing = 2.0
+        return {
+            "x": x + (index - total/2) * spacing,
+            "y": y,
+            "z": z
+        }
+    elif formation == Formation.SQUARE:
+        side = math.ceil(math.sqrt(total))
+        row = index // side
+        col = index % side
+        spacing = 2.0
+        return {
+            "x": x + (col - side/2) * spacing,
+            "y": y + (row - side/2) * spacing,
+            "z": z
+        }
+    else:  # SCATTERED
+        import random
+        return {
+            "x": x + random.uniform(-5, 5),
+            "y": y + random.uniform(-5, 5),
+            "z": z
+        }
 
 # Include the router in the main app
 app.include_router(api_router)
