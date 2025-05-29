@@ -104,6 +104,7 @@ function App() {
     loadGangConfigs();
     loadNPCs();
     loadGroups();
+    loadAdvancedGroups();
     loadStats();
   }, []);
 
