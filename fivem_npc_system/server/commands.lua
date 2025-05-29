@@ -13,7 +13,7 @@ RegisterCommand('spawnnpc', function(source, args, rawCommand)
     end
     
     if #args < 2 then
-        Utils.Notify(source, 'Uso Incorreto', 'Uso: /spawnnpc [gang] [quantidade] [modelo]', 'warning')
+        Utils.Notify(source, 'Uso', 'Uso: /spawnnpc [gang] [quantidade] [modelo]', 'warning')
         return
     end
     
