@@ -256,6 +256,9 @@ function OpenNPCCommandMenu(npc, permissionLevel)
         id = 'gang_npc_command_menu',
         title = '🎮 Comandos - ' .. gangConfig.name,
         position = 'top-left',
+        onExit = function()
+            isMenuOpen = false
+        end,
         options = options
     })
     
@@ -309,6 +312,9 @@ function OpenGroupCommandMenu(group, permissionLevel)
         id = 'gang_npc_group_menu',
         title = '🎮 Grupo - ' .. group.name,
         position = 'top-left',
+        onExit = function()
+            isMenuOpen = false
+        end,
         options = options
     })
     
