@@ -53,7 +53,13 @@ function App() {
     quantity: 1,
     formation: 'circle',
     position: { x: 0, y: 0, z: 0 },
-    weapon: ''
+    weapon: '',
+    health: 100,
+    armor: 0,
+    accuracy: 50,
+    friendly_player_ids: '',
+    friendly_jobs: '',
+    vec3_input: ''
   });
 
   // Command form state
@@ -62,6 +68,17 @@ function App() {
     command: 'follow',
     target_id: '',
     position: { x: 0, y: 0, z: 0 }
+  });
+
+  // Edit NPC state
+  const [editingNPC, setEditingNPC] = useState(null);
+  const [editForm, setEditForm] = useState({
+    health: 100,
+    armor: 0,
+    accuracy: 50,
+    weapon: '',
+    friendly_player_ids: '',
+    friendly_jobs: ''
   });
 
   useEffect(() => {
@@ -206,6 +223,61 @@ function App() {
     }
   };
 
+  const handleEditNPC = (npc) => {
+    setEditingNPC(npc);
+    setEditForm({
+      health: npc.health,
+      armor: npc.armor,
+      accuracy: npc.accuracy,
+      weapon: npc.weapon,
+      friendly_player_ids: (npc.friendly_player_ids || []).join(', '),
+      friendly_jobs: (npc.friendly_jobs || []).join(', ')
+    });
+  };
+
+  const handleUpdateNPC = async (e) => {
+    e.preventDefault();
+    if (!editingNPC) return;
+
+    setLoading(true);
+    try {
+      const response = await axios.put(`${API}/npcs/${editingNPC.id}`, editForm);
+      console.log('NPC atualizado com sucesso!');
+      alert('✅ NPC atualizado com sucesso!');
+      setEditingNPC(null);
+      await loadNPCs();
+    } catch (error) {
+      console.error('Erro ao atualizar NPC:', error);
+      alert('❌ Erro ao atualizar NPC: ' + error.response?.data?.detail);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const parseVec3 = (vec3Input) => {
+    if (!vec3Input.trim()) return;
+    
+    try {
+      // Extract numbers from the string
+      const numbers = vec3Input.match(/-?\d+\.?\d*/g);
+      if (numbers && numbers.length >= 3) {
+        setSpawnForm(prev => ({
+          ...prev,
+          position: {
+            x: parseFloat(numbers[0]),
+            y: parseFloat(numbers[1]),
+            z: parseFloat(numbers[2])
+          }
+        }));
+        alert('✅ Coordenadas extraídas com sucesso!');
+      } else {
+        alert('❌ Formato vec3 inválido. Use: vec3(-277.7, -997.36, 24.94)');
+      }
+    } catch (error) {
+      alert('❌ Erro ao processar vec3');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -217,7 +289,7 @@ function App() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Gang NPC Manager</h1>
-              <p className="text-gray-400">Sistema de Gerenciamento de NPCs para FiveM</p>
+              <p className="text-gray-400">Sistema de Gerenciamento de NPCs para FiveM v2.0</p>
             </div>
           </div>
           
@@ -278,9 +350,9 @@ function App() {
               <form onSubmit={handleSpawnNPCs} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Gang Selection */}
-                  <div>
+                  <div className="md:col-span-3">
                     <label className="block text-sm font-medium mb-2">Gangue</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                       {Object.keys(GANG_NAMES).map(gang => (
                         <button
                           key={gang}
@@ -320,6 +392,20 @@ function App() {
                     </select>
                   </div>
 
+                  {/* Weapon Selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Arma</label>
+                    <select
+                      value={spawnForm.weapon}
+                      onChange={(e) => setSpawnForm(prev => ({ ...prev, weapon: e.target.value }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                    >
+                      {gangConfigs[spawnForm.gang]?.weapons?.map(weapon => (
+                        <option key={weapon} value={weapon}>{weapon}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Quantity */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Quantidade (1-20)</label>
@@ -329,6 +415,45 @@ function App() {
                       max="20"
                       value={spawnForm.quantity}
                       onChange={(e) => setSpawnForm(prev => ({ ...prev, quantity: parseInt(e.target.value) }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                    />
+                  </div>
+
+                  {/* Health */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Vida (1-200)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="200"
+                      value={spawnForm.health}
+                      onChange={(e) => setSpawnForm(prev => ({ ...prev, health: parseInt(e.target.value) }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                    />
+                  </div>
+
+                  {/* Armor */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Armadura (0-100)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={spawnForm.armor}
+                      onChange={(e) => setSpawnForm(prev => ({ ...prev, armor: parseInt(e.target.value) }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                    />
+                  </div>
+
+                  {/* Accuracy */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Mira (0-100)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={spawnForm.accuracy}
+                      onChange={(e) => setSpawnForm(prev => ({ ...prev, accuracy: parseInt(e.target.value) }))}
                       className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
                     />
                   </div>
@@ -347,12 +472,58 @@ function App() {
                     </select>
                   </div>
 
-                  {/* Position */}
+                  {/* Friendly Player IDs */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">IDs Amigáveis (separados por vírgula)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 1, 5, 12, 25"
+                      value={spawnForm.friendly_player_ids}
+                      onChange={(e) => setSpawnForm(prev => ({ ...prev, friendly_player_ids: e.target.value }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                    />
+                  </div>
+
+                  {/* Friendly Jobs */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Jobs Amigáveis (separados por vírgula)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: police, ems, mechanic"
+                      value={spawnForm.friendly_jobs}
+                      onChange={(e) => setSpawnForm(prev => ({ ...prev, friendly_jobs: e.target.value }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                    />
+                  </div>
+
+                  {/* Vec3 Input */}
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-2">Posição (X, Y, Z)</label>
+                    <label className="block text-sm font-medium mb-2">Cole vec3 aqui (ex: vec3(-277.7, -997.36, 24.94))</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        placeholder="vec3(-277.7, -997.36, 24.94)"
+                        value={spawnForm.vec3_input}
+                        onChange={(e) => setSpawnForm(prev => ({ ...prev, vec3_input: e.target.value }))}
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => parseVec3(spawnForm.vec3_input)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+                      >
+                        Extrair
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Position (Manual) */}
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium mb-2">Posição Manual (X, Y, Z)</label>
                     <div className="grid grid-cols-3 gap-2">
                       <input
                         type="number"
+                        step="0.01"
                         placeholder="X"
                         value={spawnForm.position.x}
                         onChange={(e) => setSpawnForm(prev => ({
@@ -363,6 +534,7 @@ function App() {
                       />
                       <input
                         type="number"
+                        step="0.01"
                         placeholder="Y"
                         value={spawnForm.position.y}
                         onChange={(e) => setSpawnForm(prev => ({
@@ -373,6 +545,7 @@ function App() {
                       />
                       <input
                         type="number"
+                        step="0.01"
                         placeholder="Z"
                         value={spawnForm.position.z}
                         onChange={(e) => setSpawnForm(prev => ({
@@ -394,7 +567,13 @@ function App() {
                       quantity: 1,
                       formation: 'circle',
                       position: { x: 0, y: 0, z: 0 },
-                      weapon: gangConfigs.ballas?.weapons[0] || ''
+                      weapon: gangConfigs.ballas?.weapons[0] || '',
+                      health: 100,
+                      armor: 0,
+                      accuracy: 50,
+                      friendly_player_ids: '',
+                      friendly_jobs: '',
+                      vec3_input: ''
                     })}
                     className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
                   >
@@ -485,13 +664,22 @@ function App() {
                         <div className="text-sm text-gray-400">ID: {npc.id.substring(0, 8)}</div>
                         <div className="text-sm text-gray-400">Modelo: {npc.model}</div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteNPC(npc.id)}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                        title="Remover NPC"
-                      >
-                        🗑️
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEditNPC(npc)}
+                          className="text-blue-400 hover:text-blue-300 transition-colors"
+                          title="Editar NPC"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNPC(npc.id)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                          title="Remover NPC"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="space-y-2 text-sm">
@@ -508,12 +696,30 @@ function App() {
                       </div>
                       <div className="flex justify-between">
                         <span>Vida:</span>
-                        <span className="text-green-400">{npc.health}%</span>
+                        <span className="text-green-400">{npc.health}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Armadura:</span>
+                        <span className="text-blue-400">{npc.armor}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Mira:</span>
+                        <span className="text-yellow-400">{npc.accuracy}%</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Arma:</span>
                         <span className="text-yellow-400">{npc.weapon || 'Nenhuma'}</span>
                       </div>
+                      {npc.friendly_player_ids && npc.friendly_player_ids.length > 0 && (
+                        <div className="text-xs">
+                          <span className="text-green-400">IDs Amigáveis:</span> {npc.friendly_player_ids.join(', ')}
+                        </div>
+                      )}
+                      {npc.friendly_jobs && npc.friendly_jobs.length > 0 && (
+                        <div className="text-xs">
+                          <span className="text-green-400">Jobs Amigáveis:</span> {npc.friendly_jobs.join(', ')}
+                        </div>
+                      )}
                       {npc.group_id && (
                         <div className="flex justify-between">
                           <span>Grupo:</span>
@@ -680,6 +886,105 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* Edit NPC Modal */}
+      {editingNPC && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-4">Editar NPC: {editingNPC.id.substring(0, 8)}</h3>
+            
+            <form onSubmit={handleUpdateNPC} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Vida (1-200)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="200"
+                  value={editForm.health}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, health: parseInt(e.target.value) }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Armadura (0-100)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editForm.armor}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, armor: parseInt(e.target.value) }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Mira (0-100)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editForm.accuracy}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, accuracy: parseInt(e.target.value) }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Arma</label>
+                <select
+                  value={editForm.weapon}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, weapon: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                >
+                  {gangConfigs[editingNPC.gang]?.weapons?.map(weapon => (
+                    <option key={weapon} value={weapon}>{weapon}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">IDs Amigáveis</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 1, 5, 12, 25"
+                  value={editForm.friendly_player_ids}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, friendly_player_ids: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Jobs Amigáveis</label>
+                <input
+                  type="text"
+                  placeholder="Ex: police, ems, mechanic"
+                  value={editForm.friendly_jobs}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, friendly_jobs: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingNPC(null)}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 rounded-lg transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
