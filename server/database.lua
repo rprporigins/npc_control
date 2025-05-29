@@ -415,6 +415,120 @@ function Database.JSONGetAll(tableName, callback)
     if callback then callback(tableData) end
 end
 
+function Database.JSONUpdate(tableName, id, updateData, callback)
+    local filePath = Database.JSONFiles[tableName]
+    local file = io.open(filePath, 'r')
+    if not file then
+        if callback then callback(false) end
+        return
+    end
+    
+    local content = file:read('*all')
+    file:close()
+    
+    local tableData = json.decode(content) or {}
+    local found = false
+    
+    for i, item in ipairs(tableData) do
+        if item.id == id then
+            -- Update the item
+            for key, value in pairs(updateData) do
+                tableData[i][key] = value
+            end
+            tableData[i].last_updated = os.time()
+            found = true
+            break
+        end
+    end
+    
+    if found then
+        file = io.open(filePath, 'w')
+        if file then
+            file:write(json.encode(tableData))
+            file:close()
+            if callback then callback(true) end
+        else
+            if callback then callback(false) end
+        end
+    else
+        if callback then callback(false) end
+    end
+end
+
+function Database.JSONDelete(tableName, id, callback)
+    local filePath = Database.JSONFiles[tableName]
+    local file = io.open(filePath, 'r')
+    if not file then
+        if callback then callback(false) end
+        return
+    end
+    
+    local content = file:read('*all')
+    file:close()
+    
+    local tableData = json.decode(content) or {}
+    local found = false
+    
+    for i, item in ipairs(tableData) do
+        if item.id == id then
+            table.remove(tableData, i)
+            found = true
+            break
+        end
+    end
+    
+    if found then
+        file = io.open(filePath, 'w')
+        if file then
+            file:write(json.encode(tableData))
+            file:close()
+            if callback then callback(true) end
+        else
+            if callback then callback(false) end
+        end
+    else
+        if callback then callback(false) end
+    end
+end
+
+function Database.JSONGetPlayerItems(tableName, playerId, callback)
+    Database.JSONGetAll(tableName, function(items)
+        local result = {}
+        local playerIdStr = tostring(playerId)
+        
+        for _, item in ipairs(items) do
+            -- Check if player is in owners, leaders, or friends
+            if item.owners then
+                for _, ownerId in ipairs(item.owners) do
+                    if tostring(ownerId) == playerIdStr then
+                        table.insert(result, item)
+                        goto continue
+                    end
+                end
+            end
+            if item.leaders then
+                for _, leaderId in ipairs(item.leaders) do
+                    if tostring(leaderId) == playerIdStr then
+                        table.insert(result, item)
+                        goto continue
+                    end
+                end
+            end
+            if item.friends then
+                for _, friendId in ipairs(item.friends) do
+                    if tostring(friendId) == playerIdStr then
+                        table.insert(result, item)
+                        goto continue
+                    end
+                end
+            end
+            ::continue::
+        end
+        
+        if callback then callback(result) end
+    end)
+end
+
 -- Initialize on resource start
 CreateThread(function()
     Wait(1000) -- Wait for dependencies

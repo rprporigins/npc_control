@@ -2,7 +2,7 @@
 
 NPCManager = {}
 NPCManager.ActiveNPCs = {} -- [npcId] = {entity, data}
-NPCManager.PlayerNPCs = {} -- [playerId] = {npcIds}
+NPCManager.PlayerNPCs = {} -- [citizenid] = {npcIds}
 
 -- Initialize NPC Manager
 function NPCManager.Init()
@@ -74,9 +74,16 @@ function NPCManager.SpawnNPCEntity(npcData)
     SetPedFleeAttributes(ped, 0, false) -- Don't flee
     SetPedCombatAttributes(ped, 46, true) -- Always fight
     
-    -- Add decorator to identify as gang NPC
-    DecorSetInt(ped, 'gang_npc', 1)
-    DecorSetBool(ped, 'gang_npc_' .. npcData.id, true)
+    -- Add decorator to identify as gang NPC - ensure they're registered first
+    if DecorIsRegisteredAsType('gang_npc', 2) then
+        DecorSetInt(ped, 'gang_npc', 1)
+    end
+    if DecorIsRegisteredAsType('gang_npc_id', 1) then
+        DecorSetString(ped, 'gang_npc_id', npcData.id)
+    end
+    if DecorIsRegisteredAsType('gang_npc_' .. npcData.gang, 5) then
+        DecorSetBool(ped, 'gang_npc_' .. npcData.gang, true)
+    end
     
     -- Store NPC data
     NPCManager.ActiveNPCs[npcData.id] = {
@@ -246,9 +253,10 @@ function NPCManager.DeleteNPC(npcId, callback)
     local npcInfo = NPCManager.ActiveNPCs[npcId]
     
     if npcInfo then
-        -- Delete entity
+        -- Delete entity if it exists
         if DoesEntityExist(npcInfo.entity) then
             DeleteEntity(npcInfo.entity)
+            Utils.Debug('Deleted NPC entity:', npcInfo.entity)
         end
         
         -- Remove from active NPCs
@@ -285,6 +293,7 @@ end
 function NPCManager.ApplyNPCState(npcId, state, extraData)
     local npcInfo = NPCManager.ActiveNPCs[npcId]
     if not npcInfo or not DoesEntityExist(npcInfo.entity) then
+        Utils.Debug('Cannot apply state - NPC not found or entity does not exist:', npcId)
         return false
     end
     
@@ -300,9 +309,11 @@ function NPCManager.ApplyNPCState(npcId, state, extraData)
     elseif state == 'following' then
         -- Follow target (usually the commander)
         if extraData and extraData.target_player then
-            local targetPed = GetPlayerPed(extraData.target_player)
+            local targetSource = extraData.target_player
+            local targetPed = GetPlayerPed(targetSource)
             if DoesEntityExist(targetPed) then
                 TaskFollowToOffsetOfEntity(ped, targetPed, 0.0, -3.0, 0.0, 5.0, -1, 3.0, true)
+                Utils.Debug('NPC', npcId, 'following player', targetSource)
             end
         end
         
@@ -311,25 +322,32 @@ function NPCManager.ApplyNPCState(npcId, state, extraData)
         if extraData and extraData.guard_position then
             local pos = extraData.guard_position
             TaskGuardCurrentPosition(ped, 15.0, 15.0, true)
+        else
+            -- Guard current position
+            TaskGuardCurrentPosition(ped, 15.0, 15.0, true)
         end
         
     elseif state == 'peaceful' then
         -- Non-aggressive mode
         SetPedCombatAbility(ped, 0)
         SetPedFleeAttributes(ped, 0, true)
+        SetPedCombatAttributes(ped, 46, false)
         
     elseif state == 'combat' then
         -- Aggressive mode
         SetPedCombatAbility(ped, 100)
         SetPedCombatAttributes(ped, 46, true)
         SetPedCombatAttributes(ped, 5, true)
+        SetPedFleeAttributes(ped, 0, false)
         
     elseif state == 'attacking' then
         -- Attack specific target
         if extraData and extraData.target_player then
-            local targetPed = GetPlayerPed(extraData.target_player)
+            local targetSource = extraData.target_player
+            local targetPed = GetPlayerPed(targetSource)
             if DoesEntityExist(targetPed) then
                 TaskCombatPed(ped, targetPed, 0, 16)
+                Utils.Debug('NPC', npcId, 'attacking player', targetSource)
             end
         end
     end
@@ -338,6 +356,7 @@ function NPCManager.ApplyNPCState(npcId, state, extraData)
     npcInfo.data.state = state
     npcInfo.lastUpdate = GetGameTimer()
     
+    Utils.Debug('Applied state', state, 'to NPC', npcId)
     return true
 end
 
@@ -365,22 +384,44 @@ function NPCManager.SendCommand(commandData, callback)
     local extraData = {}
     
     if command == 'follow' then
-        extraData.target_player = GetPlayerFromServerId(issuedBy)
+        -- Find the source ID from citizenid
+        local targetSource = nil
+        for _, playerId in pairs(GetPlayers()) do
+            local Player = QBCore.Functions.GetPlayer(tonumber(playerId))
+            if Player and Player.PlayerData.citizenid == issuedBy then
+                targetSource = tonumber(playerId)
+                break
+            end
+        end
+        if targetSource then
+            extraData.target_player = targetSource
+        end
     elseif command == 'guard' then
         extraData.guard_position = commandData.position
     elseif command == 'attack' then
         if commandData.target_id then
-            extraData.target_player = GetPlayerFromServerId(commandData.target_id)
+            extraData.target_player = tonumber(commandData.target_id)
         end
     end
     
-    -- Apply command
-    local success = NPCManager.ApplyNPCState(npcId, command, extraData)
+    -- Apply command (map command to state)
+    local stateMap = {
+        follow = 'following',
+        stay = 'idle',
+        guard = 'guarding',
+        peaceful = 'peaceful',
+        combat = 'combat',
+        attack = 'attacking',
+        patrol = 'patrol'
+    }
+    
+    local newState = stateMap[command] or command
+    local success = NPCManager.ApplyNPCState(npcId, newState, extraData)
     
     if success then
         -- Update database
         Database.UpdateNPC(npcId, {
-            state = command,
+            state = newState,
             last_command = command,
             last_command_by = issuedBy
         })
@@ -424,6 +465,7 @@ function NPCManager.StartPeriodicSave()
         while true do
             Wait(Config.NPC.SaveInterval)
             
+            local savedCount = 0
             for npcId, npcInfo in pairs(NPCManager.ActiveNPCs) do
                 if DoesEntityExist(npcInfo.entity) then
                     -- Update position
@@ -436,13 +478,16 @@ function NPCManager.StartPeriodicSave()
                         health = GetEntityHealth(npcInfo.entity),
                         armor = GetPedArmour(npcInfo.entity)
                     })
+                    savedCount = savedCount + 1
                 else
                     -- NPC entity was deleted, remove from active list
                     NPCManager.ActiveNPCs[npcId] = nil
                 end
             end
             
-            Utils.Debug('Periodic save completed for', #NPCManager.ActiveNPCs, 'NPCs')
+            if savedCount > 0 then
+                Utils.Debug('Periodic save completed for', savedCount, 'NPCs')
+            end
         end
     end)
 end
