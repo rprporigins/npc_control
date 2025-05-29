@@ -58,8 +58,10 @@ function App() {
     health: 100,
     armor: 0,
     accuracy: 50,
+    owner_ids: '',
     friendly_player_ids: '',
     friendly_jobs: '',
+    npc_group_id: '', // Advanced group assignment
     vec3_input: ''
   });
 
@@ -78,9 +80,25 @@ function App() {
     armor: 0,
     accuracy: 50,
     weapon: '',
+    owner_ids: '',
     friendly_player_ids: '',
-    friendly_jobs: ''
+    friendly_jobs: '',
+    npc_group_id: ''
   });
+
+  // Advanced Group form state
+  const [groupForm, setGroupForm] = useState({
+    name: '',
+    description: '',
+    gang: 'ballas',
+    created_by: 'admin',
+    auto_defend: true,
+    auto_attack_enemies: true,
+    members: []
+  });
+
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [showGroupForm, setShowGroupForm] = useState(false);
 
   useEffect(() => {
     loadGangConfigs();
