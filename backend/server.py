@@ -161,8 +161,8 @@ def parse_vec3(vec3_str: str) -> dict:
     # Remove espaços e converte para lowercase
     cleaned = vec3_str.strip().lower()
     
-    # Extrai números (incluindo negativos e decimais)
-    numbers = re.findall(r'-?\d+\.?\d*', cleaned)
+    # Extrai números (incluindo negativos e decimais) - versão melhorada
+    numbers = re.findall(r'-?\d+(?:\.\d+)?', cleaned)
     
     if len(numbers) >= 3:
         try:
