@@ -11,7 +11,22 @@ local lastCommandTime = 0
 
 -- Initialize
 CreateThread(function()
-    Utils.Debug('Client initialized')
+    -- Wait for QBCore to be fully loaded
+    local maxWait = 100
+    local waitCount = 0
+    
+    while not QBCore and waitCount < maxWait do
+        Wait(100)
+        waitCount = waitCount + 1
+        QBCore = exports['qb-core']:GetCoreObject()
+    end
+    
+    if not QBCore then
+        Utils.Debug('ERROR: QBCore not available after waiting')
+        return
+    end
+    
+    Utils.Debug('Client initialized with QBCore ready')
     
     -- Register decorators first
     RegisterDecorators()
