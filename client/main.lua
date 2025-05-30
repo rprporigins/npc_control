@@ -643,12 +643,8 @@ end)
 
 RegisterNetEvent('gang_npc:openAdminPanel')
 AddEventHandler('gang_npc:openAdminPanel', function(data)
-    -- Open NUI admin panel
-    SetNuiFocus(true, true)
-    SendNUIMessage({
-        type = 'openAdminPanel',
-        data = data
-    })
+    -- Removido - usando ox_lib menu agora
+    Utils.Debug('Admin panel request redirected to ox_lib menu')
 end)
 
 -- Close menu handler and state fix
