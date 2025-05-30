@@ -603,6 +603,39 @@ AddEventHandler('gang_npc:npcSpawned', function(npcData, entity)
     Utils.Debug('NPC spawned:', npcData.id, 'Entity:', entity)
 end)
 
+RegisterNetEvent('gang_npc:setNPCDecorators')
+AddEventHandler('gang_npc:setNPCDecorators', function(entity, npcId, gang)
+    if not DoesEntityExist(entity) then
+        Utils.Debug('ERROR: Entity does not exist for decorator setting:', entity)
+        return
+    end
+    
+    -- Set decorators client-side where they work properly
+    local success1 = pcall(function()
+        if DecorIsRegisteredAsType('gang_npc', 2) then
+            DecorSetInt(entity, 'gang_npc', 1)
+        end
+    end)
+    
+    local success2 = pcall(function()
+        if DecorIsRegisteredAsType('gang_npc_id', 3) then
+            DecorSetString(entity, 'gang_npc_id', npcId)
+        end
+    end)
+    
+    local success3 = pcall(function()
+        if DecorIsRegisteredAsType('gang_npc_' .. gang, 2) then
+            DecorSetBool(entity, 'gang_npc_' .. gang, true)
+        end
+    end)
+    
+    if success1 and success2 and success3 then
+        Utils.Debug('Decorators set successfully for NPC:', npcId, 'Entity:', entity)
+    else
+        Utils.Debug('Warning: Some decorators failed to set for NPC:', npcId)
+    end
+end)
+
 RegisterNetEvent('gang_npc:npcDeleted')
 AddEventHandler('gang_npc:npcDeleted', function(npcId, entity)
     Utils.Debug('NPC deleted:', npcId)
