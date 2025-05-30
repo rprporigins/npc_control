@@ -1,5 +1,10 @@
 // Gang NPC Manager - Modern Admin Panel JavaScript
 
+// Função auxiliar para o NUI
+function GetParentResourceName() {
+    return 'gang_npc_manager';
+}
+
 class GangNPCManager {
     constructor() {
         this.data = {

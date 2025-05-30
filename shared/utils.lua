@@ -212,7 +212,7 @@ end
 
 -- Create notification
 function Utils.Notify(source, title, message, type, duration)
-    if IsDuplicityVersion() then
+    if type(source) == 'number' and source > 0 then
         -- Server side
         TriggerClientEvent('gang_npc:notify', source, {
             title = title,
@@ -222,13 +222,18 @@ function Utils.Notify(source, title, message, type, duration)
         })
     else
         -- Client side
-        lib.notify({
-            title = title,
-            description = message,
-            type = type or 'info',
-            duration = duration or Config.Notifications.Duration,
-            position = Config.Notifications.Position
-        })
+        if lib and lib.notify then
+            lib.notify({
+                title = title,
+                description = message,
+                type = type or 'info',
+                duration = duration or Config.Notifications.Duration,
+                position = Config.Notifications.Position
+            })
+        else
+            -- Fallback para notificação básica
+            TriggerEvent('QBCore:Notify', message, type or 'primary', duration or 5000)
+        end
     end
 end
 
