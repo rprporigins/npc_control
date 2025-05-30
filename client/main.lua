@@ -89,8 +89,9 @@ end
 
 -- Main NPC Control Menu
 function OpenNPCControlMenu()
-    if isMenuOpen then return end
+    Utils.Debug('OpenNPCControlMenu called, current isMenuOpen:', isMenuOpen)
     
+    -- Reset state to ensure menu can open
     isMenuOpen = true
     
     -- Request player data from server
