@@ -73,10 +73,10 @@ end)
 -- Register decorators
 function RegisterDecorators()
     DecorRegister('gang_npc', 2) -- Int type (2)
-    DecorRegister('gang_npc_id', 3) -- String type (3) - CORRECTED
+    DecorRegister('gang_npc_id', 3) -- String type (3) - CORRIGIDO!
     
     for gang in pairs(Config.Gangs) do
-        DecorRegister('gang_npc_' .. gang, 2) -- Bool type (2) - CORRECTED  
+        DecorRegister('gang_npc_' .. gang, 2) -- Bool type (como int 0/1)
     end
     
     Utils.Debug('Decorators registered with correct types')
@@ -643,8 +643,13 @@ end)
 
 RegisterNetEvent('gang_npc:openAdminPanel')
 AddEventHandler('gang_npc:openAdminPanel', function(data)
-    -- Removido - usando ox_lib menu agora
-    Utils.Debug('Admin panel request redirected to ox_lib menu')
+    -- Interface web
+    SendNUIMessage({
+        type = 'openAdminPanel',
+        data = data
+    })
+    SetNuiFocus(true, true)
+    Utils.Debug('Admin panel opened with web interface')
 end)
 
 -- Close menu handler and state fix

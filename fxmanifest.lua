@@ -3,7 +3,7 @@ game 'gta5'
 
 author 'Gang NPC Manager Team'
 description 'Comprehensive NPC management system for gang operations'
-version '2.0.0'
+version '2.0.1'
 
 -- Dependencies
 dependencies {
@@ -36,16 +36,17 @@ server_scripts {
 -- Client scripts
 client_scripts {
     'client/main.lua',
-    'client/admin_menu.lua'
+    'client/admin_menu.lua',
+    'client/nui_callbacks.lua'
 }
 
--- UI files (disabled - using ox_lib menus instead)
--- ui_page 'html/index.html'
--- files {
---     'html/index.html',
---     'html/style.css',
---     'html/script.js'
--- }
+-- UI files
+ui_page 'html/index.html'
+files {
+    'html/index.html',
+    'html/style.css',
+    'html/script.js'
+}
 
 -- Exports
 exports {
