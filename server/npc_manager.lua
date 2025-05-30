@@ -510,6 +510,24 @@ end
 
 -- Initialize
 CreateThread(function()
-    Wait(2000) -- Wait for database
-    NPCManager.Init()
+    -- Wait for QBCore and Database to be ready
+    local maxWait = 100
+    local waitCount = 0
+    
+    while waitCount < maxWait do
+        -- Check if QBCore is available
+        local QBCore = exports['qb-core']:GetCoreObject()
+        if QBCore and Database then
+            Utils.Debug('NPCManager: QBCore and Database ready, initializing...')
+            NPCManager.Init()
+            break
+        end
+        
+        Wait(100)
+        waitCount = waitCount + 1
+    end
+    
+    if waitCount >= maxWait then
+        Utils.Debug('ERROR: NPCManager failed to initialize - QBCore or Database not ready')
+    end
 end)
