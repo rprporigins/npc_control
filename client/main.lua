@@ -54,8 +54,14 @@ end
 function RegisterKeyBind()
     -- F10 - NPC Control Menu
     RegisterCommand('+gang_npc_menu', function()
+        Utils.Debug('F10 pressed, isMenuOpen:', isMenuOpen)
         if not isMenuOpen then
+            isMenuOpen = true
             OpenNPCControlMenu()
+        else
+            Utils.Debug('Menu already open, closing it')
+            lib.hideContext()
+            isMenuOpen = false
         end
     end, false)
     
@@ -63,10 +69,12 @@ function RegisterKeyBind()
         -- Key release handler (empty)
     end, false)
     
-    RegisterKeyMapping('+gang_npc_menu', 'Abrir Menu de Controle de NPCs', 'keyboard', 'F10')
+    RegisterKeyMapping('+gang_npc_menu', 'Abrir/Fechar Menu de Controle de NPCs', 'keyboard', 'F10')
     
     -- F9 - Admin Panel (for admins)
     RegisterCommand('+gang_npc_admin', function()
+        Utils.Debug('F9 pressed - Admin panel requested')
+        -- Always try to open admin panel, server will check permissions
         TriggerServerEvent('gang_npc:openAdminPanel')
     end, false)
     
@@ -76,7 +84,7 @@ function RegisterKeyBind()
     
     RegisterKeyMapping('+gang_npc_admin', 'Abrir Painel Administrativo', 'keyboard', 'F9')
     
-    Utils.Debug('Keybinds registered')
+    Utils.Debug('Keybinds registered - F10: NPC Menu, F9: Admin Panel')
 end
 
 -- Main NPC Control Menu
