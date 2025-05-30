@@ -74,18 +74,7 @@ function NPCManager.SpawnNPCEntity(npcData)
     SetPedFleeAttributes(ped, 0, false) -- Don't flee
     SetPedCombatAttributes(ped, 46, true) -- Always fight
     
-    -- Add decorator to identify as gang NPC - ensure they're registered first
-    if DecorIsRegisteredAsType('gang_npc', 2) then
-        DecorSetInt(ped, 'gang_npc', 1)
-    end
-    if DecorIsRegisteredAsType('gang_npc_id', 1) then
-        DecorSetString(ped, 'gang_npc_id', npcData.id)
-    end
-    if DecorIsRegisteredAsType('gang_npc_' .. npcData.gang, 5) then
-        DecorSetBool(ped, 'gang_npc_' .. npcData.gang, true)
-    end
-    
-    -- Store NPC data
+    -- Store NPC data (decorators will be set client-side)
     NPCManager.ActiveNPCs[npcData.id] = {
         entity = ped,
         data = npcData,
@@ -100,8 +89,9 @@ function NPCManager.SpawnNPCEntity(npcData)
     
     Utils.Debug('Spawned NPC:', npcData.id, 'Entity:', ped)
     
-    -- Trigger client events
+    -- Trigger client events to set decorators
     TriggerClientEvent('gang_npc:npcSpawned', -1, npcData, ped)
+    TriggerClientEvent('gang_npc:setNPCDecorators', -1, ped, npcData.id, npcData.gang)
     
     return ped
 end
