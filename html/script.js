@@ -1,556 +1,724 @@
-// Gang NPC Manager - Admin Panel JavaScript
+// Gang NPC Manager - Modern Admin Panel JavaScript
 
-let currentData = {
-    npcs: [],
-    groups: [],
-    stats: {},
-    gangs: {}
-};
+class GangNPCManager {
+    constructor() {
+        this.data = {
+            npcs: [],
+            groups: [],
+            gangs: {},
+            stats: {}
+        };
+        
+        this.currentTab = 'dashboard';
+        this.selectedNPCs = new Set();
+        
+        this.init();
+    }
 
-let selectedGang = 'ballas';
-let editingNPC = null;
+    init() {
+        console.log('🎮 Gang NPC Manager Admin Panel Initialized');
+        
+        // Setup event listeners
+        this.setupEventListeners();
+        
+        // Setup NUI message handler
+        this.setupNUIHandler();
+        
+        // Initialize tabs
+        this.initializeTabs();
+        
+        console.log('✅ Admin Panel Ready');
+    }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    initializeEventListeners();
-    initializeTabs();
+    setupEventListeners() {
+        // Close panel
+        document.getElementById('close-panel').addEventListener('click', () => {
+            this.closePanel();
+        });
+
+        // Tab navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const tab = e.currentTarget.getAttribute('data-tab');
+                this.switchTab(tab);
+            });
+        });
+
+        // Spawn form
+        const spawnForm = document.getElementById('spawn-form');
+        if (spawnForm) {
+            spawnForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleSpawnNPCs();
+            });
+        }
+
+        // Gang selection change
+        const spawnGangSelect = document.getElementById('spawn-gang');
+        if (spawnGangSelect) {
+            spawnGangSelect.addEventListener('change', (e) => {
+                this.updateModelsAndWeapons(e.target.value);
+            });
+        }
+
+        // Bulk actions
+        const bulkDeleteBtn = document.getElementById('bulk-delete');
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', () => {
+                this.handleBulkDelete();
+            });
+        }
+
+        // Select all NPCs
+        const selectAllCheckbox = document.getElementById('select-all-npcs');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => {
+                this.handleSelectAllNPCs(e.target.checked);
+            });
+        }
+
+        // Refresh buttons
+        const refreshBtn = document.getElementById('refresh-npcs');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.refreshData();
+            });
+        }
+
+        // Modal handlers
+        this.setupModalHandlers();
+
+        // Escape key to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closePanel();
+            }
+        });
+    }
+
+    setupNUIHandler() {
+        window.addEventListener('message', (event) => {
+            const data = event.data;
+            
+            switch (data.type) {
+                case 'openAdminPanel':
+                    console.log('📊 Opening admin panel with data:', data.data);
+                    this.loadData(data.data);
+                    this.showPanel();
+                    break;
+                    
+                case 'updateData':
+                    console.log('🔄 Updating panel data');
+                    this.loadData(data.data);
+                    this.refreshCurrentTab();
+                    break;
+                    
+                case 'notification':
+                    this.showNotification(data.message, data.type || 'info');
+                    break;
+                    
+                default:
+                    console.log('🔍 Unknown NUI message type:', data.type);
+            }
+        });
+    }
+
+    setupModalHandlers() {
+        // Modal overlay click to close
+        const modalOverlay = document.getElementById('modal-overlay');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    this.closeModal();
+                }
+            });
+        }
+
+        // Modal close buttons
+        document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.closeModal();
+            });
+        });
+
+        // Save NPC edit
+        const saveEditBtn = document.getElementById('save-npc-edit');
+        if (saveEditBtn) {
+            saveEditBtn.addEventListener('click', () => {
+                this.saveNPCEdit();
+            });
+        }
+    }
+
+    initializeTabs() {
+        // Show dashboard by default
+        this.switchTab('dashboard');
+    }
+
+    loadData(data) {
+        console.log('📂 Loading data into admin panel:', data);
+        
+        this.data = {
+            npcs: data.npcs || [],
+            groups: data.groups || [],
+            gangs: data.gangs || {},
+            stats: data.stats || {}
+        };
+
+        // Update header stats
+        this.updateHeaderStats();
+        
+        // Populate gang options
+        this.populateGangOptions();
+        
+        // Refresh current tab
+        this.refreshCurrentTab();
+    }
+
+    updateHeaderStats() {
+        const stats = this.data.stats;
+        
+        document.getElementById('total-npcs').textContent = stats.total_npcs || 0;
+        document.getElementById('total-groups').textContent = stats.total_groups || 0;
+        document.getElementById('active-players').textContent = stats.active_players || 0;
+        
+        // Dashboard stats
+        document.getElementById('dash-total-npcs').textContent = stats.total_npcs || 0;
+        document.getElementById('dash-total-groups').textContent = stats.total_groups || 0;
+        document.getElementById('dash-active-players').textContent = stats.active_players || 0;
+    }
+
+    populateGangOptions() {
+        const spawnGangSelect = document.getElementById('spawn-gang');
+        if (!spawnGangSelect) return;
+
+        // Clear existing options (except first)
+        while (spawnGangSelect.children.length > 1) {
+            spawnGangSelect.removeChild(spawnGangSelect.lastChild);
+        }
+
+        // Add gang options
+        Object.entries(this.data.gangs).forEach(([gangId, gangData]) => {
+            const option = document.createElement('option');
+            option.value = gangId;
+            option.textContent = gangData.name;
+            spawnGangSelect.appendChild(option);
+        });
+    }
+
+    updateModelsAndWeapons(gangId) {
+        const gangData = this.data.gangs[gangId];
+        if (!gangData) return;
+
+        // Update models
+        const modelSelect = document.getElementById('spawn-model');
+        if (modelSelect) {
+            // Clear existing options (except first)
+            while (modelSelect.children.length > 1) {
+                modelSelect.removeChild(modelSelect.lastChild);
+            }
+
+            gangData.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+        }
+
+        // Update weapons
+        const weaponSelect = document.getElementById('spawn-weapon');
+        if (weaponSelect) {
+            // Clear existing options (except first)
+            while (weaponSelect.children.length > 1) {
+                weaponSelect.removeChild(weaponSelect.lastChild);
+            }
+
+            gangData.weapons.forEach(weapon => {
+                const option = document.createElement('option');
+                option.value = weapon;
+                option.textContent = weapon.replace('WEAPON_', '');
+                weaponSelect.appendChild(option);
+            });
+        }
+    }
+
+    switchTab(tabName) {
+        console.log('📑 Switching to tab:', tabName);
+        
+        // Update navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Update content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`${tabName}-tab`).classList.add('active');
+
+        this.currentTab = tabName;
+        this.refreshCurrentTab();
+    }
+
+    refreshCurrentTab() {
+        switch (this.currentTab) {
+            case 'dashboard':
+                this.renderDashboard();
+                break;
+            case 'npcs':
+                this.renderNPCsTable();
+                break;
+            case 'groups':
+                this.renderGroupsGrid();
+                break;
+            case 'spawn':
+                // Form is static, no need to refresh
+                break;
+            case 'settings':
+                this.renderSettings();
+                break;
+        }
+    }
+
+    renderDashboard() {
+        console.log('📊 Rendering dashboard');
+        
+        // Render gang distribution
+        this.renderGangDistribution();
+        
+        // Render recent activity
+        this.renderRecentActivity();
+    }
+
+    renderGangDistribution() {
+        const container = document.getElementById('gang-distribution');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const distribution = this.data.stats.gang_distribution || {};
+        
+        Object.entries(distribution).forEach(([gangId, count]) => {
+            const gangData = this.data.gangs[gangId];
+            if (!gangData) return;
+
+            const gangItem = document.createElement('div');
+            gangItem.className = 'gang-item';
+            
+            gangItem.innerHTML = `
+                <div class="gang-info">
+                    <div class="gang-color" style="background-color: ${gangData.color}"></div>
+                    <span class="gang-name">${gangData.name}</span>
+                </div>
+                <span class="gang-count">${count}</span>
+            `;
+            
+            container.appendChild(gangItem);
+        });
+
+        if (Object.keys(distribution).length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Nenhum NPC ativo</p>';
+        }
+    }
+
+    renderRecentActivity() {
+        const container = document.getElementById('recent-activity');
+        if (!container) return;
+
+        // Mock recent activity for now
+        const activities = [
+            { action: 'NPC Spawned', details: 'Ballas NPC criado por Admin', time: '2 min atrás', icon: 'fas fa-plus', color: 'var(--success-color)' },
+            { action: 'Group Created', details: 'Novo grupo "Patrol Alpha"', time: '5 min atrás', icon: 'fas fa-users', color: 'var(--primary-color)' },
+            { action: 'NPC Deleted', details: 'Vagos NPC removido', time: '10 min atrás', icon: 'fas fa-trash', color: 'var(--danger-color)' }
+        ];
+
+        container.innerHTML = '';
+
+        activities.forEach(activity => {
+            const activityItem = document.createElement('div');
+            activityItem.className = 'activity-item';
+            
+            activityItem.innerHTML = `
+                <div class="activity-icon" style="background-color: ${activity.color}">
+                    <i class="${activity.icon}"></i>
+                </div>
+                <div class="activity-content">
+                    <div class="activity-action">${activity.action}</div>
+                    <div class="activity-details">${activity.details}</div>
+                </div>
+                <div class="activity-time">${activity.time}</div>
+            `;
+            
+            container.appendChild(activityItem);
+        });
+    }
+
+    renderNPCsTable() {
+        console.log('🤖 Rendering NPCs table');
+        
+        const tbody = document.getElementById('npcs-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        this.data.npcs.forEach(npc => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="npc-checkbox" data-npc-id="${npc.id}">
+                </td>
+                <td>
+                    <span title="${npc.id}">${npc.id.substring(0, 8)}...</span>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div class="gang-color" style="background-color: ${this.data.gangs[npc.gang]?.color || '#666'}; width: 12px; height: 12px; border-radius: 50%;"></div>
+                        ${this.data.gangs[npc.gang]?.name || npc.gang}
+                    </div>
+                </td>
+                <td>${npc.model}</td>
+                <td><span class="status-badge status-${npc.state}">${npc.state}</span></td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="background: var(--success-color); height: 4px; width: ${(npc.health || 100)}%; border-radius: 2px;"></div>
+                        <span>${npc.health || 100}%</span>
+                    </div>
+                </td>
+                <td>
+                    <span title="X: ${npc.position?.x || 0}, Y: ${npc.position?.y || 0}, Z: ${npc.position?.z || 0}">
+                        ${Math.round(npc.position?.x || 0)}, ${Math.round(npc.position?.y || 0)}
+                    </span>
+                </td>
+                <td>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="gangNPCManager.editNPC('${npc.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="gangNPCManager.deleteNPC('${npc.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+
+        // Add checkbox listeners
+        document.querySelectorAll('.npc-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const npcId = e.target.getAttribute('data-npc-id');
+                if (e.target.checked) {
+                    this.selectedNPCs.add(npcId);
+                } else {
+                    this.selectedNPCs.delete(npcId);
+                }
+                this.updateBulkActions();
+            });
+        });
+
+        if (this.data.npcs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Nenhum NPC encontrado</td></tr>';
+        }
+    }
+
+    renderGroupsGrid() {
+        console.log('👥 Rendering groups grid');
+        
+        const container = document.getElementById('groups-grid');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        this.data.groups.forEach(group => {
+            const groupCard = document.createElement('div');
+            groupCard.className = 'group-card';
+            
+            groupCard.innerHTML = `
+                <div class="group-header">
+                    <div>
+                        <div class="group-name">${group.name}</div>
+                        <div class="group-gang">${this.data.gangs[group.gang]?.name || group.gang}</div>
+                    </div>
+                    <div class="group-actions">
+                        <button class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="gangNPCManager.editGroup('${group.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="gangNPCManager.deleteGroup('${group.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="group-stats">
+                    <div class="group-stat">
+                        <div class="group-stat-value">${group.members?.length || 0}</div>
+                        <div class="group-stat-label">Membros</div>
+                    </div>
+                    <div class="group-stat">
+                        <div class="group-stat-value">${group.auto_defend ? 'Sim' : 'Não'}</div>
+                        <div class="group-stat-label">Auto Defesa</div>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(groupCard);
+        });
+
+        if (this.data.groups.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">Nenhum grupo encontrado</p>';
+        }
+    }
+
+    renderSettings() {
+        console.log('⚙️ Rendering settings');
+        // Settings are mostly static form elements
+    }
+
+    handleSpawnNPCs() {
+        console.log('🚀 Handling spawn NPCs');
+        
+        const formData = new FormData(document.getElementById('spawn-form'));
+        const spawnData = {};
+        
+        // Collect form data
+        for (let [key, value] of formData.entries()) {
+            spawnData[key.replace('spawn-', '')] = value;
+        }
+
+        // Collect additional data
+        spawnData.gang = document.getElementById('spawn-gang').value;
+        spawnData.quantity = parseInt(document.getElementById('spawn-quantity').value) || 1;
+        spawnData.formation = document.getElementById('spawn-formation').value;
+        spawnData.model = document.getElementById('spawn-model').value;
+        spawnData.weapon = document.getElementById('spawn-weapon').value;
+        spawnData.health = parseInt(document.getElementById('spawn-health').value) || 100;
+        spawnData.armor = parseInt(document.getElementById('spawn-armor').value) || 0;
+        spawnData.accuracy = parseInt(document.getElementById('spawn-accuracy').value) || 50;
+        
+        // Parse position if provided
+        const positionInput = document.getElementById('spawn-position').value.trim();
+        if (positionInput) {
+            spawnData.vec3_input = positionInput;
+        }
+
+        // Parse IDs
+        const ownersInput = document.getElementById('spawn-owners').value.trim();
+        if (ownersInput) {
+            spawnData.owner_ids = ownersInput;
+        }
+
+        console.log('📊 Spawn data:', spawnData);
+
+        // Validate required fields
+        if (!spawnData.gang) {
+            this.showNotification('Selecione uma gangue', 'error');
+            return;
+        }
+
+        // Send to game
+        this.sendNUIMessage('spawnNPCs', spawnData);
+        
+        // Show loading state
+        this.showNotification('Spawnando NPCs...', 'info');
+    }
+
+    handleBulkDelete() {
+        if (this.selectedNPCs.size === 0) {
+            this.showNotification('Selecione NPCs para deletar', 'warning');
+            return;
+        }
+
+        if (confirm(`Deletar ${this.selectedNPCs.size} NPCs selecionados?`)) {
+            const npcIds = Array.from(this.selectedNPCs);
+            this.sendNUIMessage('bulkDeleteNPCs', { npcIds });
+            this.selectedNPCs.clear();
+            this.updateBulkActions();
+        }
+    }
+
+    handleSelectAllNPCs(checked) {
+        document.querySelectorAll('.npc-checkbox').forEach(checkbox => {
+            checkbox.checked = checked;
+            const npcId = checkbox.getAttribute('data-npc-id');
+            if (checked) {
+                this.selectedNPCs.add(npcId);
+            } else {
+                this.selectedNPCs.delete(npcId);
+            }
+        });
+        this.updateBulkActions();
+    }
+
+    updateBulkActions() {
+        const bulkDeleteBtn = document.getElementById('bulk-delete');
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.disabled = this.selectedNPCs.size === 0;
+            bulkDeleteBtn.textContent = `Deletar Selecionados (${this.selectedNPCs.size})`;
+        }
+    }
+
+    editNPC(npcId) {
+        console.log('✏️ Editing NPC:', npcId);
+        
+        const npc = this.data.npcs.find(n => n.id === npcId);
+        if (!npc) return;
+
+        // Populate edit form
+        document.getElementById('edit-health').value = npc.health || 100;
+        document.getElementById('edit-armor').value = npc.armor || 0;
+        document.getElementById('edit-accuracy').value = npc.accuracy || 50;
+        document.getElementById('edit-state').value = npc.state || 'idle';
+
+        // Store current NPC ID
+        this.currentEditNPC = npcId;
+
+        // Show modal
+        this.showModal('edit-npc-modal');
+    }
+
+    saveNPCEdit() {
+        if (!this.currentEditNPC) return;
+
+        const updateData = {
+            health: parseInt(document.getElementById('edit-health').value),
+            armor: parseInt(document.getElementById('edit-armor').value),
+            accuracy: parseInt(document.getElementById('edit-accuracy').value),
+            state: document.getElementById('edit-state').value
+        };
+
+        console.log('💾 Saving NPC edit:', this.currentEditNPC, updateData);
+
+        this.sendNUIMessage('updateNPC', {
+            npcId: this.currentEditNPC,
+            updateData: updateData
+        });
+
+        this.closeModal();
+        this.currentEditNPC = null;
+    }
+
+    deleteNPC(npcId) {
+        if (confirm('Deletar este NPC?')) {
+            console.log('🗑️ Deleting NPC:', npcId);
+            this.sendNUIMessage('deleteNPC', { npcId });
+        }
+    }
+
+    editGroup(groupId) {
+        console.log('✏️ Editing group:', groupId);
+        // TODO: Implement group editing
+    }
+
+    deleteGroup(groupId) {
+        if (confirm('Deletar este grupo?')) {
+            console.log('🗑️ Deleting group:', groupId);
+            this.sendNUIMessage('deleteGroup', { groupId });
+        }
+    }
+
+    showModal(modalId) {
+        const overlay = document.getElementById('modal-overlay');
+        const modal = document.getElementById(modalId);
+        
+        if (overlay && modal) {
+            overlay.classList.add('active');
+        }
+    }
+
+    closeModal() {
+        const overlay = document.getElementById('modal-overlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    }
+
+    refreshData() {
+        console.log('🔄 Refreshing data');
+        this.sendNUIMessage('refreshData', {});
+    }
+
+    showPanel() {
+        document.body.style.display = 'block';
+    }
+
+    closePanel() {
+        console.log('❌ Closing admin panel');
+        this.sendNUIMessage('closePanel', {});
+        document.body.style.display = 'none';
+    }
+
+    sendNUIMessage(action, data) {
+        console.log('📤 Sending NUI message:', action, data);
+        
+        // Send message to FiveM NUI system
+        fetch(`https://${GetParentResourceName()}/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).catch(err => {
+            console.error('❌ Failed to send NUI message:', err);
+        });
+    }
+
+    showNotification(message, type = 'info') {
+        console.log(`📢 Notification [${type}]: ${message}`);
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        `;
+        
+        // Set background based on type
+        const colors = {
+            info: 'var(--primary-color)',
+            success: 'var(--success-color)',
+            warning: 'var(--warning-color)',
+            error: 'var(--danger-color)'
+        };
+        notification.style.background = colors[type] || colors.info;
+        
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => {
+            notification.style.opacity = '1';
+            notification.style.transform = 'translateX(0)';
+        }, 100);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.gangNPCManager = new GangNPCManager();
 });
 
-// Event Listeners
-function initializeEventListeners() {
-    // Tab navigation
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            switchTab(this.dataset.tab);
-        });
-    });
-
-    // Form submissions
-    document.getElementById('spawn-form').addEventListener('submit', handleSpawnSubmit);
-    
-    // Search functionality
-    document.getElementById('npc-search').addEventListener('input', filterNPCs);
-
-    // Escape key to close
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closePanel();
-        }
-    });
-}
-
-// Initialize tabs
-function initializeTabs() {
-    // Show first tab by default
-    switchTab('spawn');
-}
-
-// Switch between tabs
-function switchTab(tabName) {
-    // Remove active class from all tabs and content
-    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-    // Add active class to selected tab and content
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-}
-
-// Update admin panel data
-function updatePanelData(data) {
-    currentData = data;
-    updateNPCList();
-    updateGroupsList();
-    updateStats();
-}
-
-// NUI Message Handler
-window.addEventListener('message', function(event) {
-    const data = event.data;
-
-    switch(data.type) {
-        case 'openAdminPanel':
-            openAdminPanel(data.data);
-            break;
-        case 'updateData':
-            updatePanelData(data.data);
-            break;
-        case 'showNotification':
-            showNotification(data.message, data.type);
-            break;
-    }
-});
-
-// Open admin panel with data
-function openAdminPanel(data) {
-    currentData = data;
-    
-    // Show container
-    document.getElementById('container').classList.remove('hidden');
-    
-    // Update all sections
-    updateGangSelector();
-    updateNPCList();
-    updateGroupsList();
-    updateStats();
-    
-    // Set default values
-    resetSpawnForm();
-}
-
-// Update gang selector
-function updateGangSelector() {
-    const selector = document.getElementById('gang-selector');
-    selector.innerHTML = '';
-
-    Object.entries(currentData.gangs).forEach(([gangId, gangConfig]) => {
-        const option = document.createElement('div');
-        option.className = `gang-option ${gangId === selectedGang ? 'selected' : ''}`;
-        option.dataset.gang = gangId;
-        option.innerHTML = `
-            <div class="gang-color" style="background-color: ${gangConfig.color}"></div>
-            <div class="gang-name">${gangConfig.name}</div>
-        `;
-        
-        option.addEventListener('click', function() {
-            selectGang(gangId);
-        });
-        
-        selector.appendChild(option);
-    });
-}
-
-// Select gang
-function selectGang(gangId) {
-    selectedGang = gangId;
-    
-    // Update visual selection
-    document.querySelectorAll('.gang-option').forEach(option => {
-        option.classList.remove('selected');
-    });
-    document.querySelector(`[data-gang="${gangId}"]`).classList.add('selected');
-    
-    // Update model and weapon dropdowns
-    updateModelOptions();
-    updateWeaponOptions();
-}
-
-// Update model dropdown based on selected gang
-function updateModelOptions() {
-    const modelSelect = document.getElementById('model');
-    const gangConfig = currentData.gangs[selectedGang];
-    
-    modelSelect.innerHTML = '<option value="">Selecione um modelo</option>';
-    
-    if (gangConfig && gangConfig.models) {
-        gangConfig.models.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model;
-            option.textContent = model;
-            modelSelect.appendChild(option);
-        });
-        
-        // Select first model by default
-        if (gangConfig.models.length > 0) {
-            modelSelect.value = gangConfig.models[0];
-        }
-    }
-}
-
-// Update weapon dropdown based on selected gang
-function updateWeaponOptions() {
-    const weaponSelect = document.getElementById('weapon');
-    const gangConfig = currentData.gangs[selectedGang];
-    
-    weaponSelect.innerHTML = '<option value="">Selecione uma arma</option>';
-    
-    if (gangConfig && gangConfig.weapons) {
-        gangConfig.weapons.forEach(weapon => {
-            const option = document.createElement('option');
-            option.value = weapon;
-            option.textContent = weapon;
-            weaponSelect.appendChild(option);
-        });
-        
-        // Select first weapon by default
-        if (gangConfig.weapons.length > 0) {
-            weaponSelect.value = gangConfig.weapons[0];
-        }
-    }
-}
-
-// Extract vec3 coordinates
-function extractVec3() {
-    const input = document.getElementById('vec3-input').value.trim();
-    
-    if (!input) {
-        showNotification('Digite um vec3 válido', 'error');
-        return;
-    }
-    
-    // Extract numbers from vec3 string
-    const numbers = input.match(/-?\d+\.?\d*/g);
-    
-    if (numbers && numbers.length >= 3) {
-        document.getElementById('pos-x').value = parseFloat(numbers[0]);
-        document.getElementById('pos-y').value = parseFloat(numbers[1]);
-        document.getElementById('pos-z').value = parseFloat(numbers[2]);
-        
-        showNotification('Coordenadas extraídas com sucesso!', 'success');
-    } else {
-        showNotification('Formato vec3 inválido', 'error');
-    }
-}
-
-// Handle spawn form submission
-function handleSpawnSubmit(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const spawnData = {
-        gang: selectedGang,
-        model: formData.get('model'),
-        weapon: formData.get('weapon'),
-        quantity: parseInt(formData.get('quantity')),
-        formation: formData.get('formation'),
-        health: parseInt(formData.get('health')),
-        armor: parseInt(formData.get('armor')),
-        accuracy: parseInt(formData.get('accuracy')),
-        position: {
-            x: parseFloat(formData.get('pos_x')),
-            y: parseFloat(formData.get('pos_y')),
-            z: parseFloat(formData.get('pos_z'))
-        },
-        owner_ids: formData.get('owner_ids'),
-        leader_ids: formData.get('leader_ids'),
-        friend_ids: formData.get('friend_ids'),
-        vec3_input: formData.get('vec3_input')
-    };
-    
-    // Validate required fields
-    if (!spawnData.model || !spawnData.weapon) {
-        showNotification('Selecione modelo e arma', 'error');
-        return;
-    }
-    
-    if (spawnData.quantity < 1 || spawnData.quantity > 20) {
-        showNotification('Quantidade deve ser entre 1 e 20', 'error');
-        return;
-    }
-    
-    // Send to FiveM
-    showLoading(true);
-    sendNUIMessage('spawnFromPanel', spawnData);
-}
-
-// Update NPC list
-function updateNPCList() {
-    const grid = document.getElementById('npc-grid');
-    grid.innerHTML = '';
-
-    if (!currentData.npcs || currentData.npcs.length === 0) {
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; color: #9ca3af; padding: 40px;">
-                <i class="fas fa-robot" style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;"></i>
-                <p>Nenhum NPC ativo</p>
-            </div>
-        `;
-        return;
-    }
-
-    currentData.npcs.forEach(npc => {
-        const gangConfig = currentData.gangs[npc.gang];
-        if (!gangConfig) return;
-
-        const card = document.createElement('div');
-        card.className = 'npc-card';
-        card.innerHTML = `
-            <div class="npc-header">
-                <div class="npc-title">
-                    <div class="npc-gang-color" style="background-color: ${gangConfig.color}"></div>
-                    <span>${gangConfig.name}</span>
-                </div>
-                <div class="npc-actions">
-                    <button class="action-btn edit" onclick="editNPC('${npc.id}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn delete" onclick="deleteNPC('${npc.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="npc-info">
-                <div class="npc-info-item">
-                    <span class="npc-info-label">ID:</span>
-                    <span class="npc-info-value">${npc.id.substring(0, 8)}</span>
-                </div>
-                <div class="npc-info-item">
-                    <span class="npc-info-label">Estado:</span>
-                    <span class="npc-info-value">${npc.state || 'idle'}</span>
-                </div>
-                <div class="npc-info-item">
-                    <span class="npc-info-label">Vida:</span>
-                    <span class="npc-info-value">${npc.health || 100}</span>
-                </div>
-                <div class="npc-info-item">
-                    <span class="npc-info-label">Armadura:</span>
-                    <span class="npc-info-value">${npc.armor || 0}</span>
-                </div>
-                <div class="npc-info-item">
-                    <span class="npc-info-label">Precisão:</span>
-                    <span class="npc-info-value">${npc.accuracy || 50}%</span>
-                </div>
-                <div class="npc-info-item">
-                    <span class="npc-info-label">Arma:</span>
-                    <span class="npc-info-value">${npc.weapon || 'N/A'}</span>
-                </div>
-            </div>
-        `;
-        
-        grid.appendChild(card);
-    });
-}
-
-// Filter NPCs based on search
-function filterNPCs() {
-    const searchTerm = document.getElementById('npc-search').value.toLowerCase();
-    const cards = document.querySelectorAll('.npc-card');
-    
-    cards.forEach(card => {
-        const text = card.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-}
-
-// Edit NPC
-function editNPC(npcId) {
-    const npc = currentData.npcs.find(n => n.id === npcId);
-    if (!npc) return;
-    
-    editingNPC = npc;
-    
-    // Populate edit form
-    document.getElementById('edit-health').value = npc.health || 100;
-    document.getElementById('edit-armor').value = npc.armor || 0;
-    document.getElementById('edit-accuracy').value = npc.accuracy || 50;
-    document.getElementById('edit-owners').value = (npc.owners || []).join(', ');
-    document.getElementById('edit-leaders').value = (npc.leaders || []).join(', ');
-    
-    // Update weapon options for edit form
-    updateEditWeaponOptions(npc.gang);
-    document.getElementById('edit-weapon').value = npc.weapon || '';
-    
-    // Show modal
-    document.getElementById('edit-modal').classList.remove('hidden');
-}
-
-// Update weapon options in edit form
-function updateEditWeaponOptions(gang) {
-    const weaponSelect = document.getElementById('edit-weapon');
-    const gangConfig = currentData.gangs[gang];
-    
-    weaponSelect.innerHTML = '<option value="">Selecione uma arma</option>';
-    
-    if (gangConfig && gangConfig.weapons) {
-        gangConfig.weapons.forEach(weapon => {
-            const option = document.createElement('option');
-            option.value = weapon;
-            option.textContent = weapon;
-            weaponSelect.appendChild(option);
-        });
-    }
-}
-
-// Save NPC edit
-function saveNPCEdit() {
-    if (!editingNPC) return;
-    
-    const updateData = {
-        health: parseInt(document.getElementById('edit-health').value),
-        armor: parseInt(document.getElementById('edit-armor').value),
-        accuracy: parseInt(document.getElementById('edit-accuracy').value),
-        weapon: document.getElementById('edit-weapon').value,
-        owners: document.getElementById('edit-owners').value.split(',').map(s => s.trim()).filter(s => s),
-        leaders: document.getElementById('edit-leaders').value.split(',').map(s => s.trim()).filter(s => s)
-    };
-    
-    // Send to FiveM
-    showLoading(true);
-    sendNUIMessage('updateFromPanel', { npcId: editingNPC.id, updateData });
-}
-
-// Delete NPC
-function deleteNPC(npcId) {
-    if (!confirm('Tem certeza que deseja deletar este NPC?')) return;
-    
-    showLoading(true);
-    sendNUIMessage('deleteFromPanel', { npcId });
-}
-
-// Clear all NPCs
-function clearAllNPCs() {
-    if (!confirm('Tem certeza que deseja deletar TODOS os NPCs?')) return;
-    
-    showLoading(true);
-    sendNUIMessage('clearAllNPCs', {});
-}
-
-// Refresh NPCs
-function refreshNPCs() {
-    showLoading(true);
-    sendNUIMessage('refreshData', {});
-}
-
-// Update groups list
-function updateGroupsList() {
-    const grid = document.getElementById('groups-grid');
-    grid.innerHTML = '';
-
-    if (!currentData.groups || currentData.groups.length === 0) {
-        grid.innerHTML = `
-            <div style="text-align: center; color: #9ca3af; padding: 40px;">
-                <i class="fas fa-users" style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;"></i>
-                <p>Nenhum grupo criado</p>
-            </div>
-        `;
-        return;
-    }
-
-    // Groups implementation would go here
-    grid.innerHTML = '<p style="color: #9ca3af;">Sistema de grupos em desenvolvimento...</p>';
-}
-
-// Update statistics
-function updateStats() {
-    if (!currentData.stats) return;
-    
-    // Update header stats
-    document.getElementById('total-npcs').textContent = currentData.stats.total_npcs || 0;
-    document.getElementById('total-groups').textContent = currentData.stats.total_groups || 0;
-    
-    // Update detailed stats
-    document.getElementById('stats-total-npcs').textContent = currentData.stats.total_npcs || 0;
-    document.getElementById('stats-total-groups').textContent = currentData.stats.total_groups || 0;
-    document.getElementById('stats-active-players').textContent = currentData.stats.active_players || 0;
-    document.getElementById('stats-gang-count').textContent = Object.keys(currentData.stats.gang_distribution || {}).length;
-    
-    // Update gang distribution bars
-    updateGangBars();
-}
-
-// Update gang distribution bars
-function updateGangBars() {
-    const barsContainer = document.getElementById('gang-bars');
-    barsContainer.innerHTML = '';
-    
-    const distribution = currentData.stats.gang_distribution || {};
-    const total = currentData.stats.total_npcs || 1;
-    
-    Object.entries(distribution).forEach(([gang, count]) => {
-        const gangConfig = currentData.gangs[gang];
-        if (!gangConfig) return;
-        
-        const percentage = (count / total) * 100;
-        
-        const bar = document.createElement('div');
-        bar.className = 'gang-bar';
-        bar.innerHTML = `
-            <div class="gang-bar-label">
-                <div class="gang-bar-color" style="background-color: ${gangConfig.color}"></div>
-                <span>${gangConfig.name}</span>
-            </div>
-            <div class="gang-bar-progress">
-                <div class="gang-bar-fill" style="width: ${percentage}%; background-color: ${gangConfig.color}"></div>
-            </div>
-            <div class="gang-bar-count">${count}</div>
-        `;
-        
-        barsContainer.appendChild(bar);
-    });
-}
-
-// Send NUI message to FiveM
-function sendNUIMessage(action, data) {
-    fetch(`https://${GetParentResourceName()}/${action}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    }).then(() => {
-        showLoading(false);
-    }).catch(() => {
-        showLoading(false);
-        showNotification('Erro na comunicação com o servidor', 'error');
-    });
-}
-
-// Close edit modal
-function closeEditModal() {
-    document.getElementById('edit-modal').classList.add('hidden');
-    editingNPC = null;
-}
-
-// Clear spawn form
-function clearForm() {
-    document.getElementById('spawn-form').reset();
-    resetSpawnForm();
-}
-
-// Reset spawn form to defaults
-function resetSpawnForm() {
-    selectedGang = 'ballas';
-    selectGang(selectedGang);
-    
-    // Set default values
-    document.getElementById('quantity').value = 1;
-    document.getElementById('formation').value = 'circle';
-    document.getElementById('health').value = 100;
-    document.getElementById('armor').value = 0;
-    document.getElementById('accuracy').value = 50;
-    document.getElementById('pos-x').value = 0;
-    document.getElementById('pos-y').value = 0;
-    document.getElementById('pos-z').value = 0;
-}
-
-// Show/hide loading
-function showLoading(show) {
-    const loading = document.getElementById('loading');
-    if (show) {
-        loading.classList.remove('hidden');
-    } else {
-        loading.classList.add('hidden');
-    }
-}
-
-// Show notification
-function showNotification(message, type = 'info') {
-    // This would integrate with FiveM's notification system
-    console.log(`[${type.toUpperCase()}] ${message}`);
-}
-
-// Close panel
-function closePanel() {
-    document.getElementById('container').classList.add('hidden');
-    sendNUIMessage('closePanel', {});
-}
-
-// Utility function to get parent resource name
-function GetParentResourceName() {
-    return window.location.hostname === '' ? 'gang_npc_manager' : window.location.hostname;
-}
-
-// Export functions for global access
-window.extractVec3 = extractVec3;
-window.clearForm = clearForm;
-window.editNPC = editNPC;
-window.deleteNPC = deleteNPC;
-window.clearAllNPCs = clearAllNPCs;
-window.refreshNPCs = refreshNPCs;
-window.closeEditModal = closeEditModal;
-window.saveNPCEdit = saveNPCEdit;
-window.closePanel = closePanel;
+// Expose functions globally for onclick handlers
+window.gangNPCManager = null;
