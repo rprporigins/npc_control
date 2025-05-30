@@ -72,14 +72,14 @@ end)
 
 -- Register decorators
 function RegisterDecorators()
-    DecorRegister('gang_npc', 2) -- Int type
-    DecorRegister('gang_npc_id', 1) -- String type
+    DecorRegister('gang_npc', 2) -- Int type (2)
+    DecorRegister('gang_npc_id', 3) -- String type (3) - CORRECTED
     
     for gang in pairs(Config.Gangs) do
-        DecorRegister('gang_npc_' .. gang, 5) -- Bool type
+        DecorRegister('gang_npc_' .. gang, 2) -- Bool type (2) - CORRECTED  
     end
     
-    Utils.Debug('Decorators registered')
+    Utils.Debug('Decorators registered with correct types')
 end
 
 -- Register keybinds
