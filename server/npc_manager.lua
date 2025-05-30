@@ -1,4 +1,5 @@
 -- NPC Management System
+local QBCore = exports['qb-core']:GetCoreObject()
 
 NPCManager = {}
 NPCManager.ActiveNPCs = {} -- [npcId] = {entity, data}

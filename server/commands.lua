@@ -1,4 +1,5 @@
 -- Chat commands and server events
+local QBCore = exports['qb-core']:GetCoreObject()
 
 -- Initialize commands
 CreateThread(function()
