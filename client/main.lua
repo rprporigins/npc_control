@@ -654,7 +654,6 @@ AddEventHandler('onResourceStop', function(resourceName)
             lib.hideContext()
             isMenuOpen = false
         end
-        SetNuiFocus(false, false)
     end
 end)
 
