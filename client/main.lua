@@ -19,13 +19,30 @@ CreateThread(function()
     -- Register keybinds
     RegisterKeyBind()
     
-    -- Setup target system with safe dependency check
+    -- Setup target system with robust dependency check
     local hasOxTarget = false
-    if lib and lib.checkDependency then
-        hasOxTarget = pcall(function() return lib.checkDependency('ox_target') end)
+    
+    -- Multiple fallback methods for ox_target detection
+    local success, result = pcall(function()
+        if lib and lib.checkDependency then
+            return lib.checkDependency('ox_target')
+        end
+        return false
+    end)
+    
+    if success and result then
+        hasOxTarget = true
     else
-        -- Fallback check for ox_target
-        hasOxTarget = GetResourceState('ox_target') == 'started'
+        -- Fallback 1: Check resource state
+        if GetResourceState('ox_target') == 'started' then
+            hasOxTarget = true
+        else
+            -- Fallback 2: Check if exports exist
+            local exportSuccess = pcall(function()
+                return exports.ox_target ~= nil
+            end)
+            hasOxTarget = exportSuccess
+        end
     end
     
     if hasOxTarget then
