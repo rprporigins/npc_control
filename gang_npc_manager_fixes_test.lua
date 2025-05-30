@@ -1,368 +1,447 @@
---[[
-    Gang NPC Manager Fixes Test Script
-    
-    This script specifically tests the critical fixes implemented in the Gang NPC Manager.
-    It validates each of the fixes mentioned in the review request.
-    
-    Run this script in the FiveM console with: `exec gang_npc_manager_fixes_test.lua`
-]]
+-- Gang NPC Manager Fixes Test
+-- Comprehensive test script for the refactored Gang NPC Manager
 
-local tests = {}
-local testResults = {passed = 0, failed = 0, total = 0}
-local testOutput = ""
+local TestSuite = {}
+local testResults = {}
 
 -- Helper function to log test results
-local function logTest(name, result, details)
-    testResults.total = testResults.total + 1
+function TestSuite.LogResult(testName, passed, details)
+    table.insert(testResults, {
+        name = testName,
+        passed = passed,
+        details = details or ""
+    })
     
-    if result then
-        testResults.passed = testResults.passed + 1
-        testOutput = testOutput .. "[✓] PASS: " .. name .. "\n"
+    if passed then
+        print("^2[PASS]^7 " .. testName)
+        if details then
+            print("       " .. details)
+        end
     else
-        testResults.failed = testResults.failed + 1
-        testOutput = testOutput .. "[✗] FAIL: " .. name .. " - " .. (details or "No details") .. "\n"
-    end
-    
-    -- Print immediately for real-time feedback
-    if result then
-        print("^2[✓] PASS: " .. name .. "^7")
-    else
-        print("^1[✗] FAIL: " .. name .. " - " .. (details or "No details") .. "^7")
+        print("^1[FAIL]^7 " .. testName)
+        if details then
+            print("       " .. details)
+        end
     end
 end
 
--- Fix 1: Admin Permission System
-tests.checkAdminPermissionFix = function()
-    local commands = LoadResourceFile(GetCurrentResourceName(), 'server/commands.lua')
+-- Test 1: Web Interface Removal
+function TestSuite.TestWebInterfaceRemoval()
+    local testName = "Web Interface Removal"
+    local details = {}
+    local allPassed = true
     
-    if not commands then
-        logTest("Admin Permission Fix", false, "Could not load commands.lua")
+    -- Check fxmanifest.lua
+    local fxmanifest = LoadResourceFile(GetCurrentResourceName(), "fxmanifest.lua")
+    
+    if not fxmanifest then
+        table.insert(details, "Could not load fxmanifest.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
         return
     end
     
-    local adminCommands = {
-        {'spawnnpc', 'RegisterCommand%(\'spawnnpc\'.-end, true%)'},
-        {'clearnpcs', 'RegisterCommand%(\'clearnpcs\'.-end, true%)'},
-        {'npcstats', 'RegisterCommand%(\'npcstats\'.-end, true%)'}
+    -- Check if ui_page is commented out
+    if not string.find(fxmanifest, "-- ui_page") then
+        table.insert(details, "ui_page is not commented out in fxmanifest.lua")
+        allPassed = false
+    end
+    
+    -- Check if files section is commented out
+    if not string.find(fxmanifest, "-- files") then
+        table.insert(details, "files section is not commented out in fxmanifest.lua")
+        allPassed = false
+    end
+    
+    -- Check main.lua for SetNuiFocus calls
+    local mainLua = LoadResourceFile(GetCurrentResourceName(), "client/main.lua")
+    
+    if not mainLua then
+        table.insert(details, "Could not load client/main.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
+        return
+    end
+    
+    if string.find(mainLua, "SetNuiFocus") then
+        table.insert(details, "SetNuiFocus calls still present in client/main.lua")
+        allPassed = false
+    end
+    
+    if allPassed then
+        table.insert(details, "Web interface successfully removed")
+    end
+    
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
+end
+
+-- Test 2: ox_lib Menu Implementation
+function TestSuite.TestOxLibMenuImplementation()
+    local testName = "ox_lib Menu Implementation"
+    local details = {}
+    local allPassed = true
+    
+    -- Check client/admin_menu.lua
+    local adminMenuLua = LoadResourceFile(GetCurrentResourceName(), "client/admin_menu.lua")
+    
+    if not adminMenuLua then
+        table.insert(details, "Could not load client/admin_menu.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
+        return
+    end
+    
+    -- Check for lib.registerContext usage
+    if not string.find(adminMenuLua, "lib%.registerContext") then
+        table.insert(details, "lib.registerContext not found in client/admin_menu.lua")
+        allPassed = false
+    end
+    
+    -- Check for lib.showContext usage
+    if not string.find(adminMenuLua, "lib%.showContext") then
+        table.insert(details, "lib.showContext not found in client/admin_menu.lua")
+        allPassed = false
+    end
+    
+    -- Check for lib.inputDialog usage
+    if not string.find(adminMenuLua, "lib%.inputDialog") then
+        table.insert(details, "lib.inputDialog not found in client/admin_menu.lua")
+        allPassed = false
+    end
+    
+    -- Check for lib.alertDialog usage
+    if not string.find(adminMenuLua, "lib%.alertDialog") then
+        table.insert(details, "lib.alertDialog not found in client/admin_menu.lua")
+        allPassed = false
+    end
+    
+    -- Count number of menus
+    local menuCount = 0
+    for _ in string.gmatch(adminMenuLua, "lib%.registerContext") do
+        menuCount = menuCount + 1
+    end
+    
+    table.insert(details, "Found " .. menuCount .. " menu registrations")
+    
+    if menuCount < 5 then
+        table.insert(details, "Expected at least 5 menus, but found " .. menuCount)
+        allPassed = false
+    end
+    
+    if allPassed then
+        table.insert(details, "ox_lib menu system successfully implemented")
+    end
+    
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
+end
+
+-- Test 3: Admin Command
+function TestSuite.TestAdminCommand()
+    local testName = "Admin Command Implementation"
+    local details = {}
+    local allPassed = true
+    
+    -- Check server/admin_menu.lua
+    local serverAdminMenuLua = LoadResourceFile(GetCurrentResourceName(), "server/admin_menu.lua")
+    
+    if not serverAdminMenuLua then
+        table.insert(details, "Could not load server/admin_menu.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
+        return
+    end
+    
+    -- Check for command registration
+    if not string.find(serverAdminMenuLua, "RegisterCommand%('npcadmin'") then
+        table.insert(details, "npcadmin command not registered in server/admin_menu.lua")
+        allPassed = false
+    end
+    
+    -- Check for permission validation
+    if not string.find(serverAdminMenuLua, "IsPlayerAceAllowed%(source, Config%.Permissions%.AdminGroup%)") then
+        table.insert(details, "Admin permission check not found in server/admin_menu.lua")
+        allPassed = false
+    end
+    
+    -- Check for menu opening event
+    if not string.find(serverAdminMenuLua, "TriggerClientEvent%('gang_npc:openAdminMenu'") then
+        table.insert(details, "Menu opening event not found in server/admin_menu.lua")
+        allPassed = false
+    end
+    
+    if allPassed then
+        table.insert(details, "Admin command successfully implemented")
+    end
+    
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
+end
+
+-- Test 4: Menu Features
+function TestSuite.TestMenuFeatures()
+    local testName = "Menu Features"
+    local details = {}
+    local allPassed = true
+    
+    -- Check client/admin_menu.lua
+    local adminMenuLua = LoadResourceFile(GetCurrentResourceName(), "client/admin_menu.lua")
+    
+    if not adminMenuLua then
+        table.insert(details, "Could not load client/admin_menu.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
+        return
+    end
+    
+    -- Check for main menu sections
+    local requiredSections = {
+        "Dashboard",
+        "Gerenciar NPCs",
+        "Grupos",
+        "Spawnar NPCs",
+        "Ações Rápidas"
     }
     
-    local failedCommands = {}
-    
-    for _, cmdData in ipairs(adminCommands) do
-        local cmdName, pattern = cmdData[1], cmdData[2]
-        if not commands:find(pattern) then
-            table.insert(failedCommands, cmdName)
+    for _, section in ipairs(requiredSections) do
+        if not string.find(adminMenuLua, section) then
+            table.insert(details, "Required section '" .. section .. "' not found in admin menu")
+            allPassed = false
         end
     end
     
-    if #failedCommands > 0 then
-        logTest("Admin Permission Fix", false, "Commands missing 'true' flag: " .. table.concat(failedCommands, ", "))
-    else
-        logTest("Admin Permission Fix", true)
+    -- Check for dashboard features
+    if not string.find(adminMenuLua, "OpenDashboard") then
+        table.insert(details, "Dashboard function not found")
+        allPassed = false
     end
+    
+    if not string.find(adminMenuLua, "Estatísticas Gerais") then
+        table.insert(details, "Statistics section not found in dashboard")
+        allPassed = false
+    end
+    
+    if not string.find(adminMenuLua, "Distribuição por Gangue") then
+        table.insert(details, "Gang distribution not found in dashboard")
+        allPassed = false
+    end
+    
+    -- Check for NPC management
+    if not string.find(adminMenuLua, "OpenNPCsMenu") then
+        table.insert(details, "NPC management function not found")
+        allPassed = false
+    end
+    
+    if not string.find(adminMenuLua, "OpenNPCActions") then
+        table.insert(details, "NPC actions function not found")
+        allPassed = false
+    end
+    
+    -- Check for spawn system
+    if not string.find(adminMenuLua, "OpenSpawnMenu") then
+        table.insert(details, "Spawn menu function not found")
+        allPassed = false
+    end
+    
+    -- Check for quick actions
+    if not string.find(adminMenuLua, "OpenQuickActions") then
+        table.insert(details, "Quick actions function not found")
+        allPassed = false
+    end
+    
+    if not string.find(adminMenuLua, "ConfirmClearAll") then
+        table.insert(details, "Clear all confirmation function not found")
+        allPassed = false
+    end
+    
+    if allPassed then
+        table.insert(details, "All required menu features successfully implemented")
+    end
+    
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
 end
 
--- Fix 2: Player ID Consistency
-tests.checkPlayerIdConsistencyFix = function()
-    local serverFiles = {
-        'server/commands.lua',
-        'server/npc_manager.lua'
+-- Test 5: F10 Menu Preservation
+function TestSuite.TestF10MenuPreservation()
+    local testName = "F10 Menu Preservation"
+    local details = {}
+    local allPassed = true
+    
+    -- Check client/main.lua
+    local mainLua = LoadResourceFile(GetCurrentResourceName(), "client/main.lua")
+    
+    if not mainLua then
+        table.insert(details, "Could not load client/main.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
+        return
+    end
+    
+    -- Check for F10 key mapping
+    if not string.find(mainLua, "RegisterKeyMapping%('%+gang_npc_menu'") then
+        table.insert(details, "F10 key mapping not found in client/main.lua")
+        allPassed = false
+    end
+    
+    -- Check for NPC control menu functions
+    if not string.find(mainLua, "function OpenNPCControlMenu") then
+        table.insert(details, "OpenNPCControlMenu function not found in client/main.lua")
+        allPassed = false
+    end
+    
+    if not string.find(mainLua, "function BuildNPCControlMenu") then
+        table.insert(details, "BuildNPCControlMenu function not found in client/main.lua")
+        allPassed = false
+    end
+    
+    -- Check for menu sections
+    local requiredSections = {
+        "Meus NPCs",
+        "Meus Grupos",
+        "NPCs Próximos"
     }
     
-    local inconsistencies = {}
-    local citizenidUsage = 0
-    
-    for _, filePath in ipairs(serverFiles) do
-        local fileContent = LoadResourceFile(GetCurrentResourceName(), filePath)
-        
-        if not fileContent then
-            table.insert(inconsistencies, "Could not load " .. filePath)
-            goto continue
-        end
-        
-        -- Count Player.PlayerData.citizenid usage
-        local count = select(2, fileContent:gsub("Player%.PlayerData%.citizenid", ""))
-        citizenidUsage = citizenidUsage + count
-        
-        -- Check for fallbacks or alternative ID methods
-        local fallbackPatterns = {
-            "Player%.PlayerData%.cid",
-            "Player%.PlayerData%.identifier",
-            "Player%.identifier",
-            "GetPlayerIdentifier"
-        }
-        
-        for _, pattern in ipairs(fallbackPatterns) do
-            local fallbackCount = select(2, fileContent:gsub(pattern, ""))
-            if fallbackCount > 0 then
-                table.insert(inconsistencies, filePath .. ": Found " .. fallbackCount .. " instances of " .. pattern)
-            end
-        end
-        
-        ::continue::
-    end
-    
-    if #inconsistencies > 0 then
-        logTest("Player ID Consistency Fix", false, table.concat(inconsistencies, ", "))
-    elseif citizenidUsage == 0 then
-        logTest("Player ID Consistency Fix", false, "No usage of Player.PlayerData.citizenid found")
-    else
-        logTest("Player ID Consistency Fix", true)
-    end
-end
-
--- Fix 3: Decorator Registration
-tests.checkDecoratorRegistrationFix = function()
-    local clientMain = LoadResourceFile(GetCurrentResourceName(), 'client/main.lua')
-    
-    if not clientMain then
-        logTest("Decorator Registration Fix", false, "Could not load client/main.lua")
-        return
-    end
-    
-    -- Check if RegisterDecorators is called in initialization
-    local initCheck = clientMain:find("CreateThread.-RegisterDecorators%(%)")
-    
-    if not initCheck then
-        logTest("Decorator Registration Fix", false, "RegisterDecorators not called in initialization")
-        return
-    end
-    
-    -- Check if decorators are registered before use
-    local registerFunc = clientMain:find("function RegisterDecorators%(%).-end")
-    
-    if not registerFunc then
-        logTest("Decorator Registration Fix", false, "RegisterDecorators function not found")
-        return
-    end
-    
-    -- Check for proper decorator registration
-    local requiredDecorators = {
-        "DecorRegister%('gang_npc', 2%)",
-        "DecorRegister%('gang_npc_id', 1%)"
-    }
-    
-    local missingRegistrations = {}
-    for _, pattern in ipairs(requiredDecorators) do
-        if not clientMain:find(pattern) then
-            table.insert(missingRegistrations, pattern:gsub("DecorRegister%%%(", ""):gsub("%%", ""):gsub("'", ""))
-        end
-    end
-    
-    if #missingRegistrations > 0 then
-        logTest("Decorator Registration Fix", false, "Missing decorator registrations: " .. table.concat(missingRegistrations, ", "))
-    else
-        logTest("Decorator Registration Fix", true)
-    end
-end
-
--- Fix 4: Quick Menu Target System
-tests.checkTargetSystemFix = function()
-    local clientMain = LoadResourceFile(GetCurrentResourceName(), 'client/main.lua')
-    
-    if not clientMain then
-        logTest("Target System Fix", false, "Could not load client/main.lua")
-        return
-    end
-    
-    -- Check for single decorator usage in canInteract
-    local singleDecorCheck = clientMain:find("return DecorExistOn%(entity, 'gang_npc'%) and DecorGetInt%(entity, 'gang_npc'%) == 1")
-    
-    if not singleDecorCheck then
-        logTest("Target System Fix", false, "Single decorator check not found in canInteract")
-        return
-    end
-    
-    -- Check for NPC ID retrieval in OpenNPCQuickMenu
-    local idRetrievalCheck = clientMain:find("if DecorExistOn%(entity, 'gang_npc_id'%) then.-npcId = DecorGetString%(entity, 'gang_npc_id'%)")
-    
-    if not idRetrievalCheck then
-        logTest("Target System Fix", false, "NPC ID retrieval not found in OpenNPCQuickMenu")
-        return
-    }
-    
-    logTest("Target System Fix", true)
-end
-
--- Fix 5: Raycast System
-tests.checkRaycastSystemFix = function()
-    local clientMain = LoadResourceFile(GetCurrentResourceName(), 'client/main.lua')
-    
-    if not clientMain then
-        logTest("Raycast System Fix", false, "Could not load client/main.lua")
-        return
-    end
-    
-    -- Check for improved GetTargetPlayer function
-    local raycastCheck = clientMain:find("function GetTargetPlayer%(%)")
-    
-    if not raycastCheck then
-        logTest("Raycast System Fix", false, "GetTargetPlayer function not found")
-        return
-    end
-    
-    -- Check for proper raycast implementation
-    local raycastImplementation = clientMain:find("StartShapeTestRay.-GetShapeTestResult")
-    
-    if not raycastImplementation then
-        logTest("Raycast System Fix", false, "Proper raycast implementation not found")
-        return
-    end
-    
-    -- Check for player detection
-    local playerDetection = clientMain:find("IsPedAPlayer%(entityHit%)")
-    
-    if not playerDetection then
-        logTest("Raycast System Fix", false, "Player detection not found in raycast")
-        return
-    end
-    
-    logTest("Raycast System Fix", true)
-end
-
--- Fix 6: State Management
-tests.checkStateManagementFix = function()
-    local npcManager = LoadResourceFile(GetCurrentResourceName(), 'server/npc_manager.lua')
-    
-    if not npcManager then
-        logTest("State Management Fix", false, "Could not load npc_manager.lua")
-        return
-    end
-    
-    -- Check for improved ApplyNPCState function
-    local applyStateCheck = npcManager:find("function NPCManager%.ApplyNPCState")
-    
-    if not applyStateCheck then
-        logTest("State Management Fix", false, "ApplyNPCState function not found")
-        return
-    end
-    
-    -- Check for entity validation
-    local entityValidation = npcManager:find("if not npcInfo or not DoesEntityExist%(npcInfo%.entity%)")
-    
-    if not entityValidation then
-        logTest("State Management Fix", false, "Entity validation not found in ApplyNPCState")
-        return
-    end
-    
-    -- Check for state update
-    local stateUpdate = npcManager:find("npcInfo%.data%.state = state")
-    
-    if not stateUpdate then
-        logTest("State Management Fix", false, "State update not found in ApplyNPCState")
-        return
-    end
-    
-    logTest("State Management Fix", true)
-end
-
--- Fix 7: Database Functions
-tests.checkDatabaseFunctionsFix = function()
-    local database = LoadResourceFile(GetCurrentResourceName(), 'server/database.lua')
-    
-    if not database then
-        logTest("Database Functions Fix", false, "Could not load database.lua")
-        return
-    end
-    
-    -- Check for JSON functions
-    local jsonFunctions = {
-        "JSONCreate",
-        "JSONGet",
-        "JSONGetAll",
-        "JSONUpdate",
-        "JSONDelete"
-    }
-    
-    local missingFunctions = {}
-    for _, func in ipairs(jsonFunctions) do
-        if not database:find("Database%." .. func) then
-            table.insert(missingFunctions, func)
+    for _, section in ipairs(requiredSections) do
+        if not string.find(mainLua, section) then
+            table.insert(details, "Required section '" .. section .. "' not found in F10 menu")
+            allPassed = false
         end
     end
     
-    if #missingFunctions > 0 then
-        logTest("Database Functions Fix", false, "Missing JSON functions: " .. table.concat(missingFunctions, ", "))
-        return
+    if allPassed then
+        table.insert(details, "F10 menu successfully preserved")
     end
     
-    -- Check for JSONUpdate implementation
-    local jsonUpdateCheck = database:find("function Database%.JSONUpdate")
-    
-    if not jsonUpdateCheck then
-        logTest("Database Functions Fix", false, "JSONUpdate function not implemented")
-        return
-    end
-    
-    -- Check for JSONDelete implementation
-    local jsonDeleteCheck = database:find("function Database%.JSONDelete")
-    
-    if not jsonDeleteCheck then
-        logTest("Database Functions Fix", false, "JSONDelete function not implemented")
-        return
-    end
-    
-    logTest("Database Functions Fix", true)
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
 end
 
--- Fix 8: Entity Cleanup
-tests.checkEntityCleanupFix = function()
-    local npcManager = LoadResourceFile(GetCurrentResourceName(), 'server/npc_manager.lua')
+-- Test 6: No ox_lib Errors
+function TestSuite.TestNoOxLibErrors()
+    local testName = "No ox_lib Errors"
+    local details = {}
+    local allPassed = true
     
-    if not npcManager then
-        logTest("Entity Cleanup Fix", false, "Could not load npc_manager.lua")
+    -- Check for proper initialization
+    if not lib then
+        table.insert(details, "ox_lib is not initialized")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
         return
     end
     
-    -- Check for validation in DeleteNPC
-    local validationCheck = npcManager:find("function NPCManager%.DeleteNPC.-if DoesEntityExist%(npcInfo%.entity%)")
+    -- Test menu registration
+    local success, error = pcall(function()
+        lib.registerContext({
+            id = 'test_context',
+            title = 'Test Context',
+            options = {
+                {
+                    title = 'Test Option',
+                    description = 'This is a test option',
+                    onSelect = function() end
+                }
+            }
+        })
+    end)
     
-    if not validationCheck then
-        logTest("Entity Cleanup Fix", false, "Entity validation not found in DeleteNPC")
+    if not success then
+        table.insert(details, "Error registering context menu: " .. tostring(error))
+        allPassed = false
+    end
+    
+    -- Check for proper imports in fxmanifest.lua
+    local fxmanifest = LoadResourceFile(GetCurrentResourceName(), "fxmanifest.lua")
+    
+    if not fxmanifest then
+        table.insert(details, "Could not load fxmanifest.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
         return
     end
     
-    -- Check for proper entity deletion
-    local deletionCheck = npcManager:find("DeleteEntity%(npcInfo%.entity%)")
+    if not string.find(fxmanifest, "@ox_lib/init%.lua") then
+        table.insert(details, "ox_lib initialization not found in fxmanifest.lua")
+        allPassed = false
+    end
     
-    if not deletionCheck then
-        logTest("Entity Cleanup Fix", false, "Entity deletion not found in DeleteNPC")
+    if allPassed then
+        table.insert(details, "No ox_lib errors detected")
+    end
+    
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
+end
+
+-- Test 7: Performance Expectations
+function TestSuite.TestPerformanceExpectations()
+    local testName = "Performance Expectations"
+    local details = {}
+    local allPassed = true
+    
+    -- Check for absence of web interface
+    local fxmanifest = LoadResourceFile(GetCurrentResourceName(), "fxmanifest.lua")
+    
+    if not fxmanifest then
+        table.insert(details, "Could not load fxmanifest.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
         return
     end
     
-    -- Check for cleanup from active NPCs
-    local cleanupCheck = npcManager:find("NPCManager%.ActiveNPCs%[npcId%] = nil")
+    if string.find(fxmanifest, "ui_page") and not string.find(fxmanifest, "-- ui_page") then
+        table.insert(details, "Web interface still active, which could impact performance")
+        allPassed = false
+    end
     
-    if not cleanupCheck then
-        logTest("Entity Cleanup Fix", false, "Cleanup from ActiveNPCs not found in DeleteNPC")
+    -- Check for native menu usage
+    local adminMenuLua = LoadResourceFile(GetCurrentResourceName(), "client/admin_menu.lua")
+    
+    if not adminMenuLua then
+        table.insert(details, "Could not load client/admin_menu.lua")
+        TestSuite.LogResult(testName, false, table.concat(details, "\n"))
         return
     end
     
-    logTest("Entity Cleanup Fix", true)
+    if not string.find(adminMenuLua, "lib%.registerContext") or not string.find(adminMenuLua, "lib%.showContext") then
+        table.insert(details, "Not using native menus, which could impact performance")
+        allPassed = false
+    end
+    
+    -- Check for NPC list limitation (performance optimization)
+    if not string.find(adminMenuLua, "if i <= 20 then") then
+        table.insert(details, "NPC list may not be limited, which could impact performance with many NPCs")
+        allPassed = false
+    end
+    
+    if allPassed then
+        table.insert(details, "Performance optimizations successfully implemented")
+    end
+    
+    TestSuite.LogResult(testName, allPassed, table.concat(details, "\n"))
 end
 
 -- Run all tests
-Citizen.CreateThread(function()
-    -- Wait for resource to initialize
-    Citizen.Wait(2000)
+function TestSuite.RunAllTests()
+    print("^3======================================^7")
+    print("^3  GANG NPC MANAGER REFACTORING TESTS  ^7")
+    print("^3======================================^7")
     
-    print("^3=== Gang NPC Manager Fixes Test Suite ===^7")
-    print("^3Running tests for specific fixes...^7")
-    
-    for name, testFunc in pairs(tests) do
-        testFunc()
-        Citizen.Wait(100) -- Small delay between tests
-    end
+    TestSuite.TestWebInterfaceRemoval()
+    TestSuite.TestOxLibMenuImplementation()
+    TestSuite.TestAdminCommand()
+    TestSuite.TestMenuFeatures()
+    TestSuite.TestF10MenuPreservation()
+    TestSuite.TestNoOxLibErrors()
+    TestSuite.TestPerformanceExpectations()
     
     -- Print summary
-    print("\n^3=== Test Summary ===^7")
-    print("^3Total tests: ^7" .. testResults.total)
-    print("^2Passed: ^7" .. testResults.passed)
-    print("^1Failed: ^7" .. testResults.failed)
+    local passCount = 0
+    for _, result in ipairs(testResults) do
+        if result.passed then
+            passCount = passCount + 1
+        end
+    end
     
-    -- Save results to file
-    SaveResourceFile(GetCurrentResourceName(), "fixes_test_results.txt", testOutput, -1)
-    print("^3Test results saved to fixes_test_results.txt^7")
-end)
+    print("^3======================================^7")
+    print("^3  TEST SUMMARY: " .. passCount .. "/" .. #testResults .. " PASSED  ^7")
+    print("^3======================================^7")
+    
+    if passCount == #testResults then
+        print("^2All tests passed! The refactoring appears to be successful.^7")
+    else
+        print("^1Some tests failed. Please review the issues above.^7")
+    end
+    
+    return testResults
+end
 
-print("^3Gang NPC Manager fixes test script loaded. Tests will run automatically.^7")
+-- Execute tests
+return TestSuite.RunAllTests()
