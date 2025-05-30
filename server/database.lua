@@ -94,32 +94,49 @@ end
 
 -- Initialize JSON file system
 function Database.InitJSON()
-    -- Create data directory if it doesn't exist
-    local dataDir = GetResourcePath(GetCurrentResourceName()) .. '/data/'
+    -- Get resource path and create data directory
+    local resourcePath = GetResourcePath(GetCurrentResourceName())
+    local dataDir = resourcePath .. '/data/'
     
-    -- Check if files exist, create if not
+    -- Try to create data directory if it doesn't exist
+    local success, err = pcall(function()
+        os.execute('mkdir -p "' .. dataDir .. '"')
+    end)
+    
+    if not success then
+        Utils.Debug('Warning: Could not create data directory:', err)
+        Utils.Debug('Please manually create the data folder in your resource directory')
+    end
+    
+    -- Define file paths
     Database.JSONFiles = {
         npcs = dataDir .. 'npcs.json',
         groups = dataDir .. 'groups.json',
         logs = dataDir .. 'logs.json'
     }
     
+    -- Check and create files if they don't exist
     for fileName, filePath in pairs(Database.JSONFiles) do
         local file = io.open(filePath, 'r')
         if not file then
-            -- Create empty file
+            -- Create empty file with valid JSON array
+            Utils.Debug('Creating missing JSON file:', fileName)
             file = io.open(filePath, 'w')
             if file then
                 file:write('[]')
                 file:close()
                 Utils.Debug('Created JSON file: ' .. fileName)
+            else
+                Utils.Debug('ERROR: Could not create JSON file: ' .. fileName)
+                Utils.Debug('Please ensure the data directory exists and has write permissions')
             end
         else
             file:close()
+            Utils.Debug('JSON file exists: ' .. fileName)
         end
     end
     
-    Utils.Debug('JSON database initialized')
+    Utils.Debug('JSON database initialized with fallback support')
 end
 
 -- NPC CRUD operations
