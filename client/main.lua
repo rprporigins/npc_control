@@ -19,9 +19,19 @@ CreateThread(function()
     -- Register keybinds
     RegisterKeyBind()
     
-    -- Setup target system
-    if lib.checkDependency('ox_target') then
+    -- Setup target system with safe dependency check
+    local hasOxTarget = false
+    if lib and lib.checkDependency then
+        hasOxTarget = pcall(function() return lib.checkDependency('ox_target') end)
+    else
+        -- Fallback check for ox_target
+        hasOxTarget = GetResourceState('ox_target') == 'started'
+    end
+    
+    if hasOxTarget then
         SetupTargetSystem()
+    else
+        Utils.Debug('ox_target not available, skipping target system setup')
     end
     
     -- Start update loops
