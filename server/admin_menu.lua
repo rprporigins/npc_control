@@ -126,6 +126,20 @@ AddEventHandler('gang_npc:adminUpdateNPC', function(npcId, updateData)
     end)
 end)
 
+-- Adicionar este novo evento para refresh de dados
+RegisterServerEvent('gang_npc:requestAdminData')
+AddEventHandler('gang_npc:requestAdminData', function()
+    local source = source
+    
+    if not IsPlayerAceAllowed(source, Config.Permissions.AdminGroup) then
+        return
+    end
+    
+    AdminMenu.LoadData(source, function(data)
+        TriggerClientEvent('gang_npc:receiveAdminData', source, data)
+    end)
+end)
+
 RegisterServerEvent('gang_npc:adminBulkDelete')
 AddEventHandler('gang_npc:adminBulkDelete', function(npcIds)
     local source = source

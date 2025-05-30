@@ -297,6 +297,23 @@ function AdminMenuClient.OpenEditNPC(npc)
     end
 end
 
+-- Atualizar dados
+function AdminMenuClient.RefreshData()
+    TriggerServerEvent('gang_npc:requestAdminData')
+end
+
+-- Adicionar após a última função
+RegisterNetEvent('gang_npc:receiveAdminData')
+AddEventHandler('gang_npc:receiveAdminData', function(data)
+    if data then
+        adminData = data
+        Utils.Notify('Atualização', 'Dados atualizados com sucesso!', 'success')
+        AdminMenuClient.OpenMainMenu()
+    else
+        Utils.Notify('Erro', 'Falha ao atualizar dados', 'error')
+    end
+end)
+
 -- Confirmar deleção de NPC
 function AdminMenuClient.ConfirmDeleteNPC(npc)
     local alert = lib.alertDialog({
@@ -533,19 +550,6 @@ function AdminMenuClient.ShowStats()
         multiline = true,
         args = {'Gang NPC Stats', message}
     })
-end
-
--- Atualizar dados
-function AdminMenuClient.RefreshData()
-    lib.callback('gang_npc:getAdminData', false, function(data)
-        if data then
-            adminData = data
-            Utils.Notify('Atualização', 'Dados atualizados com sucesso!', 'success')
-            AdminMenuClient.OpenMainMenu()
-        else
-            Utils.Notify('Erro', 'Falha ao atualizar dados', 'error')
-        end
-    end)
 end
 
 -- Exportar funções
