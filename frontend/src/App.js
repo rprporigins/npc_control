@@ -4,13 +4,15 @@ import './App.css';
 const GAME_CONFIG = {
   width: 1400, // Tela maior
   height: 900, // Tela maior
-  gravity: 0.5, // Mais gravidade
-  jumpPower: -8, // Pulo menor
+  gravity: 0.4, // Gravidade balanceada
+  jumpPower: -10, // Pulo um pouco mais alto
+  flyPower: -0.4, // Voo muito limitado
   playerSpeed: 5,
-  fireRate: 300, // Tiro mais lento (era 100)
+  fireRate: 250, // Tiro um pouco mais rápido
   xpPerLevel: 100,
-  enemySpawnRate: 2000,
-  obstacleSpawnRate: 12000, // Obstáculos menos frequentes
+  enemySpawnRate: 1200, // Spawn mais rápido
+  obstacleSpawnRate: 8000, // Obstáculos mais frequentes
+  maxFlyHeight: 200, // Altura máxima de voo
 };
 
 // Sistema de partículas avançado com diferentes comportamentos
