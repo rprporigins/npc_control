@@ -556,60 +556,66 @@ function App() {
     const dy = player.y - enemy.y;
     const distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
     
-    // Perseguir jogador se estiver no alcance
-    if (distanceToPlayer < enemy.pursuitRange && enemy.type !== 'boss') {
-      const moveX = (dx / distanceToPlayer) * enemy.speed * 0.3;
+    // Perseguir jogador agressivamente
+    if (distanceToPlayer < enemy.pursuitRange) {
+      const moveX = (dx / distanceToPlayer) * enemy.speed * 0.6;
       enemy.x += moveX;
     }
     
     switch (enemy.behavior) {
       case 'basic':
         enemy.y += enemy.speed;
-        // Perseguir jogador horizontalmente
-        if (distanceToPlayer < enemy.pursuitRange) {
-          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.5;
+        // Perseguir jogador horizontalmente sempre
+        if (Math.abs(dx) > 20) {
+          enemy.x += (dx / Math.abs(dx)) * enemy.speed * 0.4;
         }
         break;
         
       case 'zigzag':
         enemy.y += enemy.speed;
-        enemy.zigzagPhase += 0.15;
-        enemy.x += Math.sin(enemy.zigzagPhase) * 3;
+        enemy.zigzagPhase += 0.2;
+        enemy.x += Math.sin(enemy.zigzagPhase) * 4;
         // Perseguir jogador
-        if (distanceToPlayer < enemy.pursuitRange) {
-          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.3;
+        if (Math.abs(dx) > 30) {
+          enemy.x += (dx / Math.abs(dx)) * enemy.speed * 0.3;
         }
         break;
         
       case 'tank':
         enemy.y += enemy.speed;
         // Tank persegue mais agressivamente
-        if (distanceToPlayer < enemy.pursuitRange) {
-          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.7;
+        if (Math.abs(dx) > 15) {
+          enemy.x += (dx / Math.abs(dx)) * enemy.speed * 0.8;
         }
         break;
         
       case 'shooter':
-        enemy.y += enemy.speed * 0.6; // Move mais devagar
+        enemy.y += enemy.speed * 0.7; // Move mais devagar
         
-        // Perseguir e atirar no jogador
-        if (distanceToPlayer < enemy.pursuitRange) {
-          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.2;
+        // Perseguir jogador
+        if (Math.abs(dx) > 25) {
+          enemy.x += (dx / Math.abs(dx)) * enemy.speed * 0.4;
         }
         
+        // Atirar no jogador SEMPRE quando no alcance
         if (now - enemy.lastShot > enemy.shootCooldown && distanceToPlayer < enemy.attackRange) {
-          const bulletSpeed = 5;
-          gameState.enemyBullets.push({
-            x: enemy.x + enemy.width / 2,
-            y: enemy.y + enemy.height,
-            vx: (dx / distanceToPlayer) * bulletSpeed,
-            vy: (dy / distanceToPlayer) * bulletSpeed,
-            width: 8,
-            height: 8,
-            damage: enemy.damage * 0.7,
-            color: '#ff6600',
-            emoji: '🔥'
-          });
+          const bulletSpeed = 6;
+          const spread = 0.1; // Pequeno spread para tornar mais desafiador
+          
+          for (let i = 0; i < 2; i++) { // Atira 2 projéteis
+            const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * spread;
+            gameState.enemyBullets.push({
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height,
+              vx: Math.cos(angle) * bulletSpeed,
+              vy: Math.sin(angle) * bulletSpeed,
+              width: 8,
+              height: 8,
+              damage: enemy.damage * 0.6,
+              color: '#ff6600',
+              emoji: '🔥'
+            });
+          }
           enemy.lastShot = now;
         }
         break;
@@ -618,24 +624,24 @@ function App() {
         enemy.y += enemy.speed;
         
         // Perseguir agressivamente
-        if (distanceToPlayer < enemy.pursuitRange) {
-          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.8;
+        if (Math.abs(dx) > 20) {
+          enemy.x += (dx / Math.abs(dx)) * enemy.speed * 0.9;
         }
         
-        // Teleportar ocasionalmente
+        // Teleportar próximo ao jogador frequentemente
         if (now - enemy.lastTeleport > enemy.teleportCooldown) {
           // Efeito de teleporte
           gameState.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
-            count: 20,
+            count: 15,
             colors: ['#a855f7', '#ffffff'],
-            size: { min: 2, max: 8 },
-            speed: 6,
-            lifespan: 30,
+            size: { min: 2, max: 6 },
+            speed: 5,
+            lifespan: 25,
             behavior: 'magic'
           });
           
           // Teleportar próximo ao jogador
-          const teleportDistance = 100 + Math.random() * 100;
+          const teleportDistance = 80 + Math.random() * 60;
           const teleportAngle = Math.random() * Math.PI * 2;
           enemy.x = player.x + Math.cos(teleportAngle) * teleportDistance;
           enemy.y = player.y + Math.sin(teleportAngle) * teleportDistance;
@@ -648,11 +654,11 @@ function App() {
           
           // Efeito de chegada
           gameState.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
-            count: 20,
+            count: 15,
             colors: ['#a855f7', '#ffffff'],
-            size: { min: 2, max: 8 },
-            speed: 6,
-            lifespan: 30,
+            size: { min: 2, max: 6 },
+            speed: 5,
+            lifespan: 25,
             behavior: 'magic'
           });
         }
@@ -660,72 +666,89 @@ function App() {
         
       case 'boss':
         // Movimento do boss - fica na parte superior
-        enemy.y = Math.min(enemy.y + enemy.speed, 150);
+        enemy.y = Math.min(enemy.y + enemy.speed, 120);
         
-        // Boss se move horizontalmente seguindo o jogador
-        if (enemy.x < player.x - 50) {
-          enemy.x += enemy.speed * 2;
-        } else if (enemy.x > player.x + 50) {
-          enemy.x -= enemy.speed * 2;
+        // Boss se move seguindo o jogador mais agressivamente
+        if (enemy.x < player.x - 30) {
+          enemy.x += enemy.speed * 3;
+        } else if (enemy.x > player.x + 30) {
+          enemy.x -= enemy.speed * 3;
         }
         
         // Padrões de ataque do boss baseados na vida
         const healthPercent = enemy.hp / enemy.maxHp;
-        let shootInterval = 1200;
+        let shootInterval = 600;
         
         if (healthPercent < 0.33) {
-          shootInterval = 400; // Fase final - muito rápido
+          shootInterval = 200; // Fase final - extremamente rápido
         } else if (healthPercent < 0.66) {
-          shootInterval = 700; // Fase intermediária
+          shootInterval = 350; // Fase intermediária
         }
         
         if (now - enemy.lastShot > shootInterval) {
           if (healthPercent > 0.66) {
-            // Fase 1: Tiros em spread
-            for (let i = -2; i <= 2; i++) {
+            // Fase 1: Tiros em spread amplo
+            for (let i = -3; i <= 3; i++) {
               gameState.enemyBullets.push({
                 x: enemy.x + enemy.width / 2,
                 y: enemy.y + enemy.height,
-                vx: i * 3,
-                vy: 6,
+                vx: i * 2.5,
+                vy: 7,
                 width: 12,
                 height: 12,
-                damage: enemy.damage * 0.4,
+                damage: enemy.damage * 0.3,
                 color: '#dc2626',
                 emoji: '💀'
               });
             }
           } else if (healthPercent > 0.33) {
-            // Fase 2: Tiros direcionados
-            const bulletSpeed = 7;
+            // Fase 2: Tiros direcionados múltiplos
+            const bulletSpeed = 8;
+            for (let i = 0; i < 3; i++) {
+              const angle = Math.atan2(dy, dx) + (i - 1) * 0.3;
+              gameState.enemyBullets.push({
+                x: enemy.x + enemy.width / 2,
+                y: enemy.y + enemy.height,
+                vx: Math.cos(angle) * bulletSpeed,
+                vy: Math.sin(angle) * bulletSpeed,
+                width: 15,
+                height: 15,
+                damage: enemy.damage * 0.5,
+                color: '#dc2626',
+                emoji: '🔥'
+              });
+            }
+          } else {
+            // Fase 3: Caos total - espiral + direcionado
+            const angle = (now * 0.01) % (Math.PI * 2);
+            for (let i = 0; i < 8; i++) {
+              const a = angle + (i * Math.PI / 4);
+              gameState.enemyBullets.push({
+                x: enemy.x + enemy.width / 2,
+                y: enemy.y + enemy.height / 2,
+                vx: Math.cos(a) * 7,
+                vy: Math.sin(a) * 7,
+                width: 10,
+                height: 10,
+                damage: enemy.damage * 0.4,
+                color: '#dc2626',
+                emoji: '⚡'
+              });
+            }
+            
+            // Tiro direcionado adicional
+            const bulletSpeed = 9;
             gameState.enemyBullets.push({
               x: enemy.x + enemy.width / 2,
               y: enemy.y + enemy.height,
               vx: (dx / distanceToPlayer) * bulletSpeed,
               vy: (dy / distanceToPlayer) * bulletSpeed,
-              width: 15,
-              height: 15,
-              damage: enemy.damage * 0.6,
+              width: 18,
+              height: 18,
+              damage: enemy.damage * 0.7,
               color: '#dc2626',
-              emoji: '🔥'
+              emoji: '💥'
             });
-          } else {
-            // Fase 3: Caos total - espiral + direcionado
-            const angle = (now * 0.008) % (Math.PI * 2);
-            for (let i = 0; i < 6; i++) {
-              const a = angle + (i * Math.PI / 3);
-              gameState.enemyBullets.push({
-                x: enemy.x + enemy.width / 2,
-                y: enemy.y + enemy.height / 2,
-                vx: Math.cos(a) * 6,
-                vy: Math.sin(a) * 6,
-                width: 10,
-                height: 10,
-                damage: enemy.damage * 0.5,
-                color: '#dc2626',
-                emoji: '⚡'
-              });
-            }
           }
           enemy.lastShot = now;
         }
