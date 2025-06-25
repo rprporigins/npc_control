@@ -1239,6 +1239,78 @@ function App() {
         }
       }
     });
+
+    // Bullet vs Obstacle collisions
+    state.bullets.forEach((bullet, bulletIndex) => {
+      state.obstacles.forEach((obstacle, obstacleIndex) => {
+        if (bullet.x < obstacle.x + obstacle.width &&
+            bullet.x + bullet.width > obstacle.x &&
+            bullet.y < obstacle.y + obstacle.height &&
+            bullet.y + bullet.height > obstacle.y) {
+          
+          // Bullet hit obstacle
+          obstacle.hp -= 1;
+          state.bullets.splice(bulletIndex, 1);
+
+          // Hit particles
+          state.particleSystem.emit(obstacle.x + obstacle.width/2, obstacle.y + obstacle.height/2, {
+            count: 8,
+            colors: ['#888888', '#ffffff'],
+            size: { min: 2, max: 4 },
+            speed: 4,
+            lifespan: 20,
+            behavior: 'explosion'
+          });
+
+          if (obstacle.hp <= 0) {
+            // Obstacle destroyed
+            state.obstacles.splice(obstacleIndex, 1);
+            state.score += 5;
+            
+            // Destruction explosion
+            state.particleSystem.emit(
+              obstacle.x + obstacle.width/2, 
+              obstacle.y + obstacle.height/2,
+              {
+                count: 25,
+                colors: ['#888888', '#ffffff', '#ffaa00'],
+                size: { min: 3, max: 7 },
+                speed: 8,
+                lifespan: 35,
+                behavior: 'explosion',
+                spread: Math.PI * 2
+              }
+            );
+
+            triggerScreenShake(8, 200);
+          }
+        }
+      });
+    });
+
+    // Enemy Bullet vs Obstacle collisions
+    state.enemyBullets.forEach((bullet, bulletIndex) => {
+      state.obstacles.forEach((obstacle, obstacleIndex) => {
+        if (bullet.x < obstacle.x + obstacle.width &&
+            bullet.x + bullet.width > obstacle.x &&
+            bullet.y < obstacle.y + obstacle.height &&
+            bullet.y + bullet.height > obstacle.y) {
+          
+          // Enemy bullet hit obstacle - bullet is destroyed
+          state.enemyBullets.splice(bulletIndex, 1);
+
+          // Small impact particles
+          state.particleSystem.emit(bullet.x, bullet.y, {
+            count: 5,
+            colors: ['#ff6600', '#ffffff'],
+            size: { min: 1, max: 3 },
+            speed: 3,
+            lifespan: 15,
+            behavior: 'explosion'
+          });
+        }
+      });
+    });
   };
 
   const createParticles = (state, x, y, color) => {
