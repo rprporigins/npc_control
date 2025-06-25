@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mago Roguelike - Jogo Online</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 800px;
+            padding: 40px;
+        }
+        
+        h1 {
+            font-size: 48px;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px #000;
+            margin-bottom: 20px;
+            animation: glow 2s infinite alternate;
+        }
+        
+        p {
+            font-size: 20px;
+            margin: 15px 0;
+            text-shadow: 1px 1px 2px #000;
+        }
+        
+        .play-button {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            border: none;
+            color: #fff;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            margin: 30px 10px;
+            transition: all 0.3s ease;
+            text-shadow: 1px 1px 2px #000;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .play-button:hover {
+            background: linear-gradient(135deg, #ff8555 0%, #ff6b35 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+        }
+        
+        .features {
+            margin: 40px 0;
+            text-align: left;
+        }
+        
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .features li {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #ffd700;
+        }
+        
+        .features li::before {
+            content: "⚡ ";
+            color: #ffd700;
+        }
+        
+        .controls {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+        
+        .controls h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+        }
+        
+        .controls p {
+            font-size: 16px;
+            margin: 8px 0;
+        }
+        
+        @keyframes glow {
+            0% { text-shadow: 2px 2px 4px #000, 0 0 10px #ffd700; }
+            100% { text-shadow: 2px 2px 4px #000, 0 0 20px #ffd700, 0 0 30px #ffd700; }
+        }
+        
+        .github-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .github-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <a href="https://github.com/SEU_USUARIO/SEU_REPOSITORIO" class="github-link" target="_blank">
+        📚 Código no GitHub
+    </a>
+    
+    <div class="container">
+        <h1>🧙‍♂️ MAGO ROGUELIKE ⚡</h1>
+        
+        <p>Um jogo roguelike épico onde você controla um mago poderoso!</p>
+        
+        <div class="features">
+            <h3 style="color: #ffd700; text-align: center;">🎮 Funcionalidades do Jogo:</h3>
+            <ul>
+                <li><strong>Sistema de Ondas</strong> - Enfrente ondas progressivas de inimigos</li>
+                <li><strong>5 Tipos de Inimigos</strong> - Basic, Zigzag, Shooter, Tank, Teleporter</li>
+                <li><strong>Bosses Épicos</strong> - Chefes a cada 5 ondas com múltiplas fases</li>
+                <li><strong>Power-ups por Raridade</strong> - Comum, Incomum, Raro, Épico, Lendário</li>
+                <li><strong>Sistema de Partículas</strong> - Efeitos visuais incríveis</li>
+                <li><strong>Screen Shake</strong> - Feedback tátil baseado em dano</li>
+                <li><strong>Física Realista</strong> - Gravidade e movimento fluido</li>
+                <li><strong>Progressão de Dificuldade</strong> - Fica mais difícil a cada nível</li>
+            </ul>
+        </div>
+        
+        <div class="controls">
+            <h3>🎯 Como Jogar:</h3>
+            <p><strong>WASD</strong> - Mover o mago</p>
+            <p><strong>ESPAÇO</strong> - Pular/Voar brevemente</p>
+            <p><strong>MOUSE</strong> - Mirar (tiro automático)</p>
+            <p><strong>CLIQUE</strong> - Começar o jogo</p>
+        </div>
+        
+        <!-- Para desenvolvimento local -->
+        <a href="http://localhost:3000" class="play-button" id="local-play">
+            🎮 Jogar Localmente
+        </a>
+        
+        <!-- Para GitHub Pages (você vai substituir a URL) -->
+        <a href="https://SEU_USUARIO.github.io/SEU_REPOSITORIO" class="play-button" id="online-play" style="display: none;">
+            🌐 Jogar Online
+        </a>
+        
+        <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">
+            Desenvolvido com React + HTML5 Canvas<br>
+            Estilo pixel art com efeitos neon
+        </p>
+    </div>
+    
+    <script>
+        // Detectar se está rodando localmente ou online
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            document.getElementById('local-play').style.display = 'inline-block';
+            document.getElementById('online-play').style.display = 'none';
+        } else {
+            document.getElementById('local-play').style.display = 'none';
+            document.getElementById('online-play').style.display = 'inline-block';
+        }
+        
+        // Easter egg: Efeitos de partículas no clique
+        document.addEventListener('click', function(e) {
+            createSparkle(e.clientX, e.clientY);
+        });
+        
+        function createSparkle(x, y) {
+            const sparkle = document.createElement('div');
+            sparkle.style.position = 'fixed';
+            sparkle.style.left = x + 'px';
+            sparkle.style.top = y + 'px';
+            sparkle.style.width = '4px';
+            sparkle.style.height = '4px';
+            sparkle.style.background = '#ffd700';
+            sparkle.style.borderRadius = '50%';
+            sparkle.style.pointerEvents = 'none';
+            sparkle.style.animation = 'sparkle 1s ease-out forwards';
+            document.body.appendChild(sparkle);
+            
+            setTimeout(() => {
+                if (sparkle.parentNode) {
+                    sparkle.parentNode.removeChild(sparkle);
+                }
+            }, 1000);
+        }
+        
+        // Adicionar CSS para animação de sparkle
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes sparkle {
+                0% {
+                    opacity: 1;
+                    transform: scale(1) translateY(0);
+                }
+                100% {
+                    opacity: 0;
+                    transform: scale(0) translateY(-50px);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
