@@ -985,7 +985,7 @@ function App() {
       player.vx *= 0.85; // Friction
     }
 
-    // Vertical movement
+    // Vertical movement - pulo
     if (keys['w'] || keys['arrowup']) {
       if (player.grounded || player.canJump) {
         player.vy = GAME_CONFIG.jumpPower;
@@ -994,9 +994,13 @@ function App() {
       }
     }
 
-    // Jump/fly with space (mais controlado)
+    // Voo limitado com space
     if (keys[' ']) {
-      player.vy = Math.max(player.vy - 0.6, GAME_CONFIG.jumpPower);
+      // Só pode voar se não estiver muito alto
+      const maxFlyY = GAME_CONFIG.height - GAME_CONFIG.maxFlyHeight;
+      if (player.y > maxFlyY) {
+        player.vy += GAME_CONFIG.flyPower;
+      }
     }
 
     // Apply gravity
@@ -1006,8 +1010,11 @@ function App() {
     player.x += player.vx;
     player.y += player.vy;
 
-    // Boundaries
+    // Boundaries - não pode sair da tela
     player.x = Math.max(0, Math.min(GAME_CONFIG.width - player.width, player.x));
+    
+    // Não pode voar pra fora da tela pelo topo
+    player.y = Math.max(0, player.y);
 
     // Ground collision
     if (player.y >= GAME_CONFIG.height - player.height - 40) {
