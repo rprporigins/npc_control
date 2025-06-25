@@ -203,4 +203,4 @@ Desenvolvido com ❤️ e muito café ☕
 
 ---
 
-🎮 **[CLIQUE AQUI PARA JOGAR!](https://SEU_USUARIO.github.io/SEU_REPOSITORIO)**
+🎮 **[CLIQUE AQUI PARA JOGAR!](https://rprporigins.github.io/npc_control)**
