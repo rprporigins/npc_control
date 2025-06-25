@@ -80,8 +80,8 @@ Power-ups organizados por raridade com efeitos únicos:
 ### Instalação
 ```bash
 # Clone o repositório
-git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
-cd SEU_REPOSITORIO
+git clone https://github.com/rprporigins/npc_control.git
+cd npc_control
 
 # Instale as dependências
 cd frontend
