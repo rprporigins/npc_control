@@ -2,15 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import './App.css';
 
 const GAME_CONFIG = {
-  width: 1000,
-  height: 700,
-  gravity: 0.3,
-  jumpPower: -12,
-  playerSpeed: 4,
-  fireRate: 100, // ms between shots
+  width: 1400, // Tela maior
+  height: 900, // Tela maior
+  gravity: 0.5, // Mais gravidade
+  jumpPower: -8, // Pulo menor
+  playerSpeed: 5,
+  fireRate: 300, // Tiro mais lento (era 100)
   xpPerLevel: 100,
-  enemySpawnRate: 2000, // ms
-  obstacleSpawnRate: 8000, // ms
+  enemySpawnRate: 2000,
+  obstacleSpawnRate: 12000, // Obstáculos menos frequentes
 };
 
 // Sistema de partículas avançado com diferentes comportamentos
@@ -221,7 +221,7 @@ class WaveManager {
     return {
       enemyCount: isBossWave ? 1 : baseEnemies + (waveNumber * 2),
       enemyTypes: this.getEnemyTypesForWave(waveNumber),
-      spawnRate: Math.max(500, 2000 - (waveNumber * 100)), // Spawn mais rápido
+      spawnRate: Math.max(800, 2500 - (waveNumber * 100)), // Spawn mais lento
       enemyHealthMultiplier: 1 + (waveNumber * 0.2),
       enemySpeedMultiplier: 1 + (waveNumber * 0.1),
       enemyDamageMultiplier: 1 + (waveNumber * 0.15),
@@ -289,37 +289,40 @@ class WaveManager {
 
   createEnemyOfType(type, waveConfig) {
     const baseStats = {
-      basic: { hp: 30, speed: 1, damage: 10, size: 1, color: '#22c55e' },
-      zigzag: { hp: 40, speed: 1.5, damage: 15, size: 1, color: '#3b82f6' },
-      tank: { hp: 100, speed: 0.5, damage: 30, size: 1.5, color: '#6b7280' },
-      shooter: { hp: 50, speed: 0.8, damage: 20, size: 1, color: '#f97316' },
-      teleporter: { hp: 60, speed: 2, damage: 25, size: 1, color: '#a855f7' },
-      boss: { hp: 500, speed: 0.3, damage: 50, size: 3, color: '#dc2626' }
+      basic: { hp: 30, speed: 1.5, damage: 10, size: 1, emoji: '👹', color: '#22c55e' },
+      zigzag: { hp: 40, speed: 2, damage: 15, size: 1, emoji: '🐍', color: '#3b82f6' },
+      tank: { hp: 100, speed: 0.8, damage: 30, size: 1.5, emoji: '🛡️', color: '#6b7280' },
+      shooter: { hp: 50, speed: 1.2, damage: 20, size: 1, emoji: '🏹', color: '#f97316' },
+      teleporter: { hp: 60, speed: 2.5, damage: 25, size: 1, emoji: '👻', color: '#a855f7' },
+      boss: { hp: 500, speed: 0.5, damage: 50, size: 2.5, emoji: '🐲', color: '#dc2626' }
     };
     
     const stats = baseStats[type];
     const x = type === 'boss' 
       ? GAME_CONFIG.width / 2 - 50 
-      : Math.random() * (GAME_CONFIG.width - 40);
+      : Math.random() * (GAME_CONFIG.width - 60);
     
     return {
       x,
-      y: -40 * stats.size,
-      width: 25 * stats.size,
-      height: 25 * stats.size,
+      y: -60 * stats.size,
+      width: 40 * stats.size,
+      height: 40 * stats.size,
       speed: stats.speed * waveConfig.enemySpeedMultiplier,
       hp: stats.hp * waveConfig.enemyHealthMultiplier,
       maxHp: stats.hp * waveConfig.enemyHealthMultiplier,
       damage: stats.damage * waveConfig.enemyDamageMultiplier,
       color: stats.color,
+      emoji: stats.emoji,
       type,
       behavior: type,
       // Propriedades específicas
-      shootCooldown: type === 'shooter' ? 2000 : 0,
+      shootCooldown: type === 'shooter' || type === 'boss' ? 1500 : 0,
       lastShot: 0,
       teleportCooldown: type === 'teleporter' ? 3000 : 0,
       lastTeleport: 0,
-      zigzagPhase: 0
+      zigzagPhase: 0,
+      pursuitRange: 300, // Alcance de perseguição
+      attackRange: 200    // Alcance de ataque
     };
   }
 
@@ -449,18 +452,19 @@ function App() {
   const gameStateRef = useRef({
     player: {
       x: GAME_CONFIG.width / 2,
-      y: GAME_CONFIG.height - 100,
+      y: GAME_CONFIG.height - 150,
       vx: 0,
       vy: 0,
-      width: 30,
-      height: 30,
+      width: 40,
+      height: 40,
       hp: 100,
       maxHp: 100,
       grounded: false,
       canJump: true,
-      damage: 20,
+      damage: 25,
       fireRate: GAME_CONFIG.fireRate,
       lastShot: 0,
+      emoji: '🧙‍♂️'
     },
     bullets: [],
     enemies: [],
@@ -523,53 +527,80 @@ function App() {
     state.screenShake.duration = duration;
   };
 
-  // Implementação dos comportamentos dos inimigos
+  // Implementação dos comportamentos dos inimigos MELHORADA
   const updateEnemyBehavior = (enemy, player, gameState) => {
     const now = Date.now();
+    
+    // Calcular distância para o jogador
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
+    
+    // Perseguir jogador se estiver no alcance
+    if (distanceToPlayer < enemy.pursuitRange && enemy.type !== 'boss') {
+      const moveX = (dx / distanceToPlayer) * enemy.speed * 0.3;
+      enemy.x += moveX;
+    }
     
     switch (enemy.behavior) {
       case 'basic':
         enemy.y += enemy.speed;
+        // Perseguir jogador horizontalmente
+        if (distanceToPlayer < enemy.pursuitRange) {
+          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.5;
+        }
         break;
         
       case 'zigzag':
         enemy.y += enemy.speed;
-        enemy.zigzagPhase += 0.1;
-        enemy.x += Math.sin(enemy.zigzagPhase) * 2;
+        enemy.zigzagPhase += 0.15;
+        enemy.x += Math.sin(enemy.zigzagPhase) * 3;
+        // Perseguir jogador
+        if (distanceToPlayer < enemy.pursuitRange) {
+          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.3;
+        }
         break;
         
       case 'tank':
         enemy.y += enemy.speed;
-        // Tank pode empurrar outros inimigos
+        // Tank persegue mais agressivamente
+        if (distanceToPlayer < enemy.pursuitRange) {
+          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.7;
+        }
         break;
         
       case 'shooter':
-        enemy.y += enemy.speed * 0.5; // Move mais devagar
+        enemy.y += enemy.speed * 0.6; // Move mais devagar
         
-        // Atirar no jogador
-        if (now - enemy.lastShot > enemy.shootCooldown) {
-          const dx = player.x - enemy.x;
-          const dy = player.y - enemy.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist < 400) { // Alcance de tiro
-            gameState.enemyBullets.push({
-              x: enemy.x + enemy.width / 2,
-              y: enemy.y + enemy.height,
-              vx: (dx / dist) * 4,
-              vy: (dy / dist) * 4,
-              width: 8,
-              height: 8,
-              damage: enemy.damage,
-              color: '#ff4444'
-            });
-            enemy.lastShot = now;
-          }
+        // Perseguir e atirar no jogador
+        if (distanceToPlayer < enemy.pursuitRange) {
+          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.2;
+        }
+        
+        if (now - enemy.lastShot > enemy.shootCooldown && distanceToPlayer < enemy.attackRange) {
+          const bulletSpeed = 5;
+          gameState.enemyBullets.push({
+            x: enemy.x + enemy.width / 2,
+            y: enemy.y + enemy.height,
+            vx: (dx / distanceToPlayer) * bulletSpeed,
+            vy: (dy / distanceToPlayer) * bulletSpeed,
+            width: 8,
+            height: 8,
+            damage: enemy.damage * 0.7,
+            color: '#ff6600',
+            emoji: '🔥'
+          });
+          enemy.lastShot = now;
         }
         break;
         
       case 'teleporter':
         enemy.y += enemy.speed;
+        
+        // Perseguir agressivamente
+        if (distanceToPlayer < enemy.pursuitRange) {
+          enemy.x += (dx / distanceToPlayer) * enemy.speed * 0.8;
+        }
         
         // Teleportar ocasionalmente
         if (now - enemy.lastTeleport > enemy.teleportCooldown) {
@@ -583,7 +614,16 @@ function App() {
             behavior: 'magic'
           });
           
-          enemy.x = Math.random() * (GAME_CONFIG.width - enemy.width);
+          // Teleportar próximo ao jogador
+          const teleportDistance = 100 + Math.random() * 100;
+          const teleportAngle = Math.random() * Math.PI * 2;
+          enemy.x = player.x + Math.cos(teleportAngle) * teleportDistance;
+          enemy.y = player.y + Math.sin(teleportAngle) * teleportDistance;
+          
+          // Manter dentro dos limites
+          enemy.x = Math.max(0, Math.min(GAME_CONFIG.width - enemy.width, enemy.x));
+          enemy.y = Math.max(0, Math.min(GAME_CONFIG.height - enemy.height, enemy.y));
+          
           enemy.lastTeleport = now;
           
           // Efeito de chegada
@@ -599,71 +639,75 @@ function App() {
         break;
         
       case 'boss':
-        // Movimento do boss
-        enemy.y = Math.min(enemy.y + enemy.speed, 100); // Para no topo da tela
+        // Movimento do boss - fica na parte superior
+        enemy.y = Math.min(enemy.y + enemy.speed, 150);
         
-        // Padrões de ataque do boss
-        const phase = Math.floor(enemy.hp / enemy.maxHp * 3); // 3 fases
+        // Boss se move horizontalmente seguindo o jogador
+        if (enemy.x < player.x - 50) {
+          enemy.x += enemy.speed * 2;
+        } else if (enemy.x > player.x + 50) {
+          enemy.x -= enemy.speed * 2;
+        }
         
-        switch (phase) {
-          case 2: // Fase 1: Tiros em spread
-            if (now - enemy.lastShot > 1000) {
-              for (let i = -2; i <= 2; i++) {
-                gameState.enemyBullets.push({
-                  x: enemy.x + enemy.width / 2,
-                  y: enemy.y + enemy.height,
-                  vx: i * 2,
-                  vy: 4,
-                  width: 10,
-                  height: 10,
-                  damage: enemy.damage / 2,
-                  color: '#dc2626'
-                });
-              }
-              enemy.lastShot = now;
-            }
-            break;
-            
-          case 1: // Fase 2: Tiros direcionados rápidos
-            if (now - enemy.lastShot > 500) {
-              const dx = player.x - enemy.x;
-              const dy = player.y - enemy.y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              
+        // Padrões de ataque do boss baseados na vida
+        const healthPercent = enemy.hp / enemy.maxHp;
+        let shootInterval = 1200;
+        
+        if (healthPercent < 0.33) {
+          shootInterval = 400; // Fase final - muito rápido
+        } else if (healthPercent < 0.66) {
+          shootInterval = 700; // Fase intermediária
+        }
+        
+        if (now - enemy.lastShot > shootInterval) {
+          if (healthPercent > 0.66) {
+            // Fase 1: Tiros em spread
+            for (let i = -2; i <= 2; i++) {
               gameState.enemyBullets.push({
                 x: enemy.x + enemy.width / 2,
                 y: enemy.y + enemy.height,
-                vx: (dx / dist) * 6,
-                vy: (dy / dist) * 6,
+                vx: i * 3,
+                vy: 6,
                 width: 12,
                 height: 12,
-                damage: enemy.damage,
-                color: '#dc2626'
+                damage: enemy.damage * 0.4,
+                color: '#dc2626',
+                emoji: '💀'
               });
-              enemy.lastShot = now;
             }
-            break;
-            
-          case 0: // Fase 3: Caos total
-            if (now - enemy.lastShot > 300) {
-              // Tiros em espiral
-              const angle = (now * 0.005) % (Math.PI * 2);
-              for (let i = 0; i < 4; i++) {
-                const a = angle + (i * Math.PI / 2);
-                gameState.enemyBullets.push({
-                  x: enemy.x + enemy.width / 2,
-                  y: enemy.y + enemy.height / 2,
-                  vx: Math.cos(a) * 5,
-                  vy: Math.sin(a) * 5,
-                  width: 8,
-                  height: 8,
-                  damage: enemy.damage * 0.7,
-                  color: '#dc2626'
-                });
-              }
-              enemy.lastShot = now;
+          } else if (healthPercent > 0.33) {
+            // Fase 2: Tiros direcionados
+            const bulletSpeed = 7;
+            gameState.enemyBullets.push({
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height,
+              vx: (dx / distanceToPlayer) * bulletSpeed,
+              vy: (dy / distanceToPlayer) * bulletSpeed,
+              width: 15,
+              height: 15,
+              damage: enemy.damage * 0.6,
+              color: '#dc2626',
+              emoji: '🔥'
+            });
+          } else {
+            // Fase 3: Caos total - espiral + direcionado
+            const angle = (now * 0.008) % (Math.PI * 2);
+            for (let i = 0; i < 6; i++) {
+              const a = angle + (i * Math.PI / 3);
+              gameState.enemyBullets.push({
+                x: enemy.x + enemy.width / 2,
+                y: enemy.y + enemy.height / 2,
+                vx: Math.cos(a) * 6,
+                vy: Math.sin(a) * 6,
+                width: 10,
+                height: 10,
+                damage: enemy.damage * 0.5,
+                color: '#dc2626',
+                emoji: '⚡'
+              });
             }
-            break;
+          }
+          enemy.lastShot = now;
         }
         break;
     }
@@ -747,18 +791,19 @@ function App() {
     const state = gameStateRef.current;
     state.player = {
       x: GAME_CONFIG.width / 2,
-      y: GAME_CONFIG.height - 100,
+      y: GAME_CONFIG.height - 150,
       vx: 0,
       vy: 0,
-      width: 30,
-      height: 30,
+      width: 40,
+      height: 40,
       hp: 100,
       maxHp: 100,
       grounded: false,
       canJump: true,
-      damage: 20,
+      damage: 25,
       fireRate: GAME_CONFIG.fireRate,
       lastShot: 0,
+      emoji: '🧙‍♂️'
     };
     state.bullets = [];
     state.enemies = [];
@@ -857,8 +902,8 @@ function App() {
     });
 
     // Remove off-screen entities
-    state.enemies = state.enemies.filter(enemy => enemy.y < GAME_CONFIG.height + 50);
-    state.obstacles = state.obstacles.filter(obstacle => obstacle.y < GAME_CONFIG.height + 50);
+    state.enemies = state.enemies.filter(enemy => enemy.y < GAME_CONFIG.height + 100);
+    state.obstacles = state.obstacles.filter(obstacle => obstacle.y < GAME_CONFIG.height + 100);
 
     // Update particle system
     state.particleSystem.update();
@@ -890,11 +935,11 @@ function App() {
 
     // Horizontal movement
     if (keys['a'] || keys['arrowleft']) {
-      player.vx = Math.max(player.vx - 0.5, -GAME_CONFIG.playerSpeed);
+      player.vx = Math.max(player.vx - 0.6, -GAME_CONFIG.playerSpeed);
     } else if (keys['d'] || keys['arrowright']) {
-      player.vx = Math.min(player.vx + 0.5, GAME_CONFIG.playerSpeed);
+      player.vx = Math.min(player.vx + 0.6, GAME_CONFIG.playerSpeed);
     } else {
-      player.vx *= 0.8; // Friction
+      player.vx *= 0.85; // Friction
     }
 
     // Vertical movement
@@ -906,9 +951,9 @@ function App() {
       }
     }
 
-    // Jump/fly with space
+    // Jump/fly with space (mais controlado)
     if (keys[' ']) {
-      player.vy = Math.max(player.vy - 0.8, GAME_CONFIG.jumpPower);
+      player.vy = Math.max(player.vy - 0.6, GAME_CONFIG.jumpPower);
     }
 
     // Apply gravity
@@ -922,8 +967,8 @@ function App() {
     player.x = Math.max(0, Math.min(GAME_CONFIG.width - player.width, player.x));
 
     // Ground collision
-    if (player.y >= GAME_CONFIG.height - player.height - 20) {
-      player.y = GAME_CONFIG.height - player.height - 20;
+    if (player.y >= GAME_CONFIG.height - player.height - 40) {
+      player.y = GAME_CONFIG.height - player.height - 40;
       player.vy = 0;
       player.grounded = true;
       player.canJump = true;
@@ -938,7 +983,7 @@ function App() {
     const dy = mouse.y - (player.y + player.height / 2);
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    const speed = 8;
+    const speed = 10;
     const vx = (dx / distance) * speed;
     const vy = (dy / distance) * speed;
 
@@ -947,9 +992,10 @@ function App() {
       y: player.y + player.height / 2,
       vx: vx,
       vy: vy,
-      width: 6,
-      height: 6,
+      width: 8,
+      height: 8,
       damage: player.damage,
+      emoji: '⭐'
     });
 
     // Partículas de tiro mágico
@@ -957,25 +1003,26 @@ function App() {
       player.x + player.width / 2, 
       player.y + player.height / 2, 
       {
-        count: 3,
-        colors: ['#ffff00', '#ffa500'],
+        count: 5,
+        colors: ['#ffff00', '#ffa500', '#ffffff'],
         size: { min: 1, max: 3 },
-        speed: 2,
-        lifespan: 20,
+        speed: 3,
+        lifespan: 25,
         behavior: 'magic'
       }
     );
   };
 
   const spawnObstacle = (state) => {
-    const x = Math.random() * (GAME_CONFIG.width - 60);
+    const x = Math.random() * (GAME_CONFIG.width - 80);
     const obstacle = {
       x: x,
-      y: -60,
-      width: 50 + Math.random() * 40,
-      height: 50 + Math.random() * 40,
-      speed: 3 + Math.random() * 2,
-      damage: 50,
+      y: -80,
+      width: 60 + Math.random() * 40,
+      height: 60 + Math.random() * 40,
+      speed: 4 + Math.random() * 3,
+      damage: 60,
+      emoji: '🪨'
     };
     state.obstacles.push(obstacle);
   };
@@ -997,28 +1044,28 @@ function App() {
 
           // Hit particles
           state.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
-            count: 8,
-            colors: [enemy.color, '#ffffff'],
-            size: { min: 2, max: 4 },
-            speed: 4,
-            lifespan: 20,
+            count: 12,
+            colors: [enemy.color, '#ffffff', '#ffff00'],
+            size: { min: 2, max: 5 },
+            speed: 6,
+            lifespan: 25,
             behavior: 'explosion'
           });
 
           // Screen shake pequeno no hit
-          triggerScreenShake(3, 100);
+          triggerScreenShake(4, 120);
 
           if (enemy.hp <= 0) {
             // Enemy died
             state.enemies.splice(enemyIndex, 1);
             state.kills++;
-            state.score += 10 + (state.level * 5);
+            state.score += 15 + (state.level * 8);
             
             // Notify wave manager
             state.waveManager.onEnemyKilled(enemy);
             
             // Gain XP
-            const xpGain = 10 + (state.level * 2);
+            const xpGain = 15 + (state.level * 3);
             state.xp += xpGain;
             
             // Death explosion
@@ -1026,18 +1073,19 @@ function App() {
               enemy.x + enemy.width/2, 
               enemy.y + enemy.height/2,
               {
-                count: 30,
-                colors: [enemy.color, '#ffffff', '#ffff00'],
-                size: { min: 2, max: 6 },
-                speed: 8,
-                lifespan: 40,
+                count: 35,
+                colors: [enemy.color, '#ffffff', '#ffff00', '#ff6600'],
+                size: { min: 3, max: 8 },
+                speed: 10,
+                lifespan: 45,
                 behavior: 'explosion',
                 spread: Math.PI * 2
               }
             );
 
             // Screen shake médio na morte
-            triggerScreenShake(8, 200);
+            const shakeIntensity = enemy.type === 'boss' ? 20 : 10;
+            triggerScreenShake(shakeIntensity, 250);
 
             // Level up check
             if (state.xp >= state.xpToNext) {
@@ -1060,19 +1108,19 @@ function App() {
         
         // Hit particles
         state.particleSystem.emit(player.x + player.width/2, player.y + player.height/2, {
-          count: 15,
-          colors: ['#ff4444', '#ffffff'],
-          size: { min: 2, max: 5 },
-          speed: 6,
-          lifespan: 30,
+          count: 20,
+          colors: ['#ff4444', '#ffffff', '#ffaa00'],
+          size: { min: 2, max: 6 },
+          speed: 8,
+          lifespan: 35,
           behavior: 'explosion'
         });
 
         // Screen shake forte no dano do player
-        triggerScreenShake(15, 200);
+        triggerScreenShake(18, 250);
         
         if (player.hp <= 0) {
-          triggerScreenShake(30, 500); // Shake muito forte no game over
+          triggerScreenShake(35, 600);
           gameOver(state);
         }
       }
@@ -1091,19 +1139,19 @@ function App() {
         
         // Hit particles
         state.particleSystem.emit(player.x + player.width/2, player.y + player.height/2, {
-          count: 10,
+          count: 15,
           colors: ['#ff4444', '#ffffff'],
-          size: { min: 2, max: 4 },
-          speed: 5,
-          lifespan: 25,
+          size: { min: 2, max: 5 },
+          speed: 6,
+          lifespan: 30,
           behavior: 'explosion'
         });
 
         // Screen shake no dano
-        triggerScreenShake(12, 150);
+        triggerScreenShake(15, 180);
         
         if (player.hp <= 0) {
-          triggerScreenShake(30, 500);
+          triggerScreenShake(35, 600);
           gameOver(state);
         }
       }
@@ -1121,19 +1169,19 @@ function App() {
         
         // Obstacle impact particles
         state.particleSystem.emit(player.x + player.width/2, player.y + player.height/2, {
-          count: 20,
-          colors: ['#888888', '#ffffff'],
-          size: { min: 3, max: 7 },
-          speed: 8,
-          lifespan: 35,
+          count: 25,
+          colors: ['#888888', '#ffffff', '#ffaa00'],
+          size: { min: 4, max: 8 },
+          speed: 10,
+          lifespan: 40,
           behavior: 'explosion'
         });
 
         // Screen shake muito forte por obstáculo
-        triggerScreenShake(25, 400);
+        triggerScreenShake(30, 450);
         
         if (player.hp <= 0) {
-          triggerScreenShake(40, 600);
+          triggerScreenShake(45, 700);
           gameOver(state);
         }
       }
@@ -1279,6 +1327,14 @@ function App() {
     setGameStarted(false);
   };
 
+  // Função para renderizar emoji
+  const renderEmoji = (ctx, emoji, x, y, size) => {
+    ctx.font = `${size}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, x, y);
+  };
+
   const renderGame = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1293,12 +1349,13 @@ function App() {
     if (!state.gameStarted) {
       // Start screen
       ctx.fillStyle = '#ffffff';
-      ctx.font = '48px monospace';
+      ctx.font = '64px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('MAGO ROGUELIKE', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 50);
-      ctx.font = '24px monospace';
+      ctx.fillText('🧙‍♂️ MAGO ROGUELIKE ⚡', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 - 80);
+      ctx.font = '32px monospace';
       ctx.fillText('Clique para começar', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 20);
-      ctx.fillText('WASD para mover, ESPAÇO para voar', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 60);
+      ctx.font = '24px monospace';
+      ctx.fillText('WASD para mover, ESPAÇO para voar', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 80);
       return;
     }
 
@@ -1306,66 +1363,54 @@ function App() {
     ctx.save();
     ctx.translate(state.screenShake.offsetX, state.screenShake.offsetY);
 
-    // Render player (wizard)
+    // Render player (wizard emoji)
     const player = state.player;
-    ctx.fillStyle = '#ff6b35';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-    
-    // Player glow effect
-    ctx.shadowColor = '#ff6b35';
-    ctx.shadowBlur = 10;
-    ctx.fillRect(player.x + 5, player.y + 5, player.width - 10, player.height - 10);
-    ctx.shadowBlur = 0;
+    renderEmoji(ctx, player.emoji, player.x + player.width/2, player.y + player.height/2, 32);
 
-    // Render bullets
+    // Render bullets (star emojis)
     state.bullets.forEach(bullet => {
-      ctx.fillStyle = '#ffff00';
-      ctx.shadowColor = '#ffff00';
-      ctx.shadowBlur = 5;
-      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-      ctx.shadowBlur = 0;
+      renderEmoji(ctx, bullet.emoji, bullet.x + bullet.width/2, bullet.y + bullet.height/2, 16);
     });
 
     // Render enemy bullets
     state.enemyBullets.forEach(bullet => {
-      ctx.fillStyle = bullet.color || '#ff4444';
-      ctx.shadowColor = bullet.color || '#ff4444';
-      ctx.shadowBlur = 3;
-      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-      ctx.shadowBlur = 0;
+      if (bullet.emoji) {
+        renderEmoji(ctx, bullet.emoji, bullet.x + bullet.width/2, bullet.y + bullet.height/2, 14);
+      } else {
+        ctx.fillStyle = bullet.color || '#ff4444';
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      }
     });
 
-    // Render enemies
+    // Render enemies (various emojis)
     state.enemies.forEach(enemy => {
-      ctx.fillStyle = enemy.color;
-      ctx.shadowColor = enemy.color;
-      ctx.shadowBlur = 8;
-      ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      ctx.shadowBlur = 0;
+      renderEmoji(ctx, enemy.emoji, enemy.x + enemy.width/2, enemy.y + enemy.height/2, 
+                  enemy.type === 'boss' ? 48 : 28);
       
       // Health bar
       const healthPercent = enemy.hp / enemy.maxHp;
+      const barWidth = enemy.width;
+      const barHeight = 6;
+      const barX = enemy.x;
+      const barY = enemy.y - 12;
+      
       ctx.fillStyle = '#ff0000';
-      ctx.fillRect(enemy.x, enemy.y - 8, enemy.width, 4);
+      ctx.fillRect(barX, barY, barWidth, barHeight);
       ctx.fillStyle = '#00ff00';
-      ctx.fillRect(enemy.x, enemy.y - 8, enemy.width * healthPercent, 4);
+      ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
       
       // Boss indicator
       if (enemy.type === 'boss') {
         ctx.fillStyle = '#ffffff';
-        ctx.font = '12px monospace';
+        ctx.font = '16px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('BOSS', enemy.x + enemy.width/2, enemy.y - 15);
+        ctx.fillText('👑 BOSS 👑', enemy.x + enemy.width/2, enemy.y - 25);
       }
     });
 
-    // Render obstacles
+    // Render obstacles (rock emojis)
     state.obstacles.forEach(obstacle => {
-      ctx.fillStyle = '#888888';
-      ctx.shadowColor = '#888888';
-      ctx.shadowBlur = 5;
-      ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-      ctx.shadowBlur = 0;
+      renderEmoji(ctx, obstacle.emoji, obstacle.x + obstacle.width/2, obstacle.y + obstacle.height/2, 36);
     });
 
     // Render particle system
@@ -1382,7 +1427,7 @@ function App() {
     state.explosions.forEach(explosion => {
       const alpha = explosion.life / explosion.maxLife;
       ctx.strokeStyle = `rgba(255, 255, 0, ${alpha})`;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
       ctx.stroke();
@@ -1390,7 +1435,7 @@ function App() {
 
     // Render ground
     ctx.fillStyle = '#333333';
-    ctx.fillRect(0, GAME_CONFIG.height - 20, GAME_CONFIG.width, 20);
+    ctx.fillRect(0, GAME_CONFIG.height - 40, GAME_CONFIG.width, 40);
 
     // Restaurar contexto (remover screen shake)
     ctx.restore();
@@ -1402,7 +1447,7 @@ function App() {
       const seconds = Math.ceil(waveStatus.timeToNextWave / 1000);
       return (
         <div className="wave-intermission">
-          <h2>Onda {waveStatus.wave} Completa!</h2>
+          <h2>🎉 Onda {waveStatus.wave} Completa! 🎉</h2>
           <p>Próxima onda em: {seconds}s</p>
           {waveStatus.wave % 5 === 4 && <p className="boss-warning">⚠️ BOSS CHEGANDO! ⚠️</p>}
         </div>
@@ -1412,9 +1457,9 @@ function App() {
     if (waveStatus.active) {
       return (
         <div className="wave-info">
-          <span>Onda {waveStatus.wave}</span>
-          {waveStatus.isBossWave && <span className="boss-warning">BOSS!</span>}
-          <span>Inimigos: {waveStatus.enemiesRemaining}/{waveStatus.totalEnemies}</span>
+          <span>🌊 Onda {waveStatus.wave}</span>
+          {waveStatus.isBossWave && <span className="boss-warning">👑 BOSS! 👑</span>}
+          <span>👹 Inimigos: {waveStatus.enemiesRemaining}/{waveStatus.totalEnemies}</span>
         </div>
       );
     }
@@ -1431,29 +1476,36 @@ function App() {
         className="game-canvas"
       />
       
-      {/* HUD */}
+      {/* HUD na parte de baixo */}
       {gameStarted && (
         <div className="hud">
-          <div className="hud-top">
-            <div className="health-bar">
-              <div className="health-fill" style={{ width: `${(gameStats.hp / gameStats.maxHp) * 100}%` }} />
-              <span className="health-text">{gameStats.hp}/{gameStats.maxHp}</span>
-            </div>
-            <div className="level-info">
-              <span>Nível {gameStats.level}</span>
-              <div className="xp-bar">
-                <div className="xp-fill" style={{ width: `${(gameStats.xp / gameStats.xpToNext) * 100}%` }} />
+          {/* Wave Display no topo */}
+          <WaveDisplay waveStatus={waveStatus} />
+          
+          {/* HUD principal embaixo */}
+          <div className="hud-bottom">
+            <div className="health-section">
+              <div className="health-bar">
+                <div className="health-fill" style={{ width: `${(gameStats.hp / gameStats.maxHp) * 100}%` }} />
+                <span className="health-text">❤️ {gameStats.hp}/{gameStats.maxHp}</span>
               </div>
-              <span>{gameStats.xp}/{gameStats.xpToNext} XP</span>
             </div>
-            <div className="score">
-              <span>Pontos: {gameStats.score}</span>
-              <span>Kills: {gameStats.kills}</span>
+            
+            <div className="xp-section">
+              <div className="level-info">
+                <span>⭐ Nível {gameStats.level}</span>
+                <div className="xp-bar">
+                  <div className="xp-fill" style={{ width: `${(gameStats.xp / gameStats.xpToNext) * 100}%` }} />
+                </div>
+                <span>💫 {gameStats.xp}/{gameStats.xpToNext} XP</span>
+              </div>
+            </div>
+            
+            <div className="score-section">
+              <span>🏆 Pontos: {gameStats.score}</span>
+              <span>💀 Kills: {gameStats.kills}</span>
             </div>
           </div>
-          
-          {/* Wave Display */}
-          <WaveDisplay waveStatus={waveStatus} />
         </div>
       )}
 
@@ -1461,7 +1513,7 @@ function App() {
       {showPowerUpSelection && (
         <div className="power-up-selection">
           <div className="power-up-modal">
-            <h2>Escolha um Power-up!</h2>
+            <h2>✨ Escolha um Power-up! ✨</h2>
             <div className="power-up-choices">
               {availablePowerUps.map((powerUp, index) => (
                 <div
@@ -1486,13 +1538,13 @@ function App() {
       {!gameStarted && gameStateRef.current.gameOver && (
         <div className="game-over">
           <div className="game-over-modal">
-            <h2>Game Over!</h2>
+            <h2>💀 Game Over! 💀</h2>
             <p>Nível Final: {gameStats.level}</p>
             <p>Onda Final: {waveStatus.wave}</p>
             <p>Pontuação: {gameStats.score}</p>
             <p>Kills: {gameStats.kills}</p>
             <button onClick={() => { resetGame(); startGame(); }}>
-              Jogar Novamente
+              🔄 Jogar Novamente
             </button>
           </div>
         </div>
