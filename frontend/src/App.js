@@ -13,6 +13,351 @@ const GAME_CONFIG = {
   obstacleSpawnRate: 8000, // ms
 };
 
+// Sistema de partículas avançado com diferentes comportamentos
+class ParticleSystem {
+  constructor() {
+    this.particles = [];
+  }
+
+  emit(x, y, options = {}) {
+    const defaults = {
+      count: 10,
+      speed: 5,
+      spread: Math.PI * 2,
+      lifespan: 60,
+      colors: ['#ffffff'],
+      size: { min: 2, max: 4 },
+      gravity: 0.1,
+      fadeOut: true,
+      shape: 'circle', // circle, square, star
+      behavior: 'normal' // normal, fire, smoke, explosion, magic
+    };
+
+    const config = { ...defaults, ...options };
+
+    for (let i = 0; i < config.count; i++) {
+      const angle = config.spread === Math.PI * 2 
+        ? Math.random() * Math.PI * 2 
+        : -config.spread/2 + Math.random() * config.spread;
+      
+      const speed = config.speed * (0.5 + Math.random() * 0.5);
+      const size = config.size.min + Math.random() * (config.size.max - config.size.min);
+      const color = config.colors[Math.floor(Math.random() * config.colors.length)];
+
+      const particle = {
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size,
+        baseSize: size,
+        color,
+        life: config.lifespan,
+        maxLife: config.lifespan,
+        gravity: config.gravity,
+        fadeOut: config.fadeOut,
+        shape: config.shape,
+        behavior: config.behavior,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.2
+      };
+
+      // Comportamentos especiais
+      switch (config.behavior) {
+        case 'fire':
+          particle.vy = -Math.abs(particle.vy) - 2; // Sempre sobe
+          particle.vx *= 0.5;
+          particle.gravity = -0.05; // Sobe mais
+          break;
+        case 'smoke':
+          particle.vy = -Math.abs(particle.vy) * 0.3;
+          particle.size *= 2;
+          particle.fadeOut = true;
+          break;
+        case 'explosion':
+          particle.vx *= 2;
+          particle.vy *= 2;
+          particle.gravity = 0.3;
+          break;
+        case 'magic':
+          particle.oscillate = Math.random() * Math.PI * 2;
+          particle.oscillateSpeed = 0.1 + Math.random() * 0.1;
+          break;
+      }
+
+      this.particles.push(particle);
+    }
+  }
+
+  update() {
+    this.particles = this.particles.filter(particle => {
+      // Física básica
+      particle.vx *= 0.98; // Fricção
+      particle.vy += particle.gravity;
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.life--;
+      particle.rotation += particle.rotationSpeed;
+
+      // Comportamentos específicos
+      switch (particle.behavior) {
+        case 'fire':
+          particle.vx += (Math.random() - 0.5) * 0.5;
+          particle.size = particle.baseSize * (particle.life / particle.maxLife);
+          break;
+        case 'smoke':
+          particle.size += 0.1;
+          particle.vx += (Math.random() - 0.5) * 0.2;
+          break;
+        case 'magic':
+          particle.oscillate += particle.oscillateSpeed;
+          particle.x += Math.sin(particle.oscillate) * 0.5;
+          particle.y += Math.cos(particle.oscillate) * 0.3;
+          break;
+      }
+
+      return particle.life > 0;
+    });
+  }
+
+  render(ctx) {
+    this.particles.forEach(particle => {
+      ctx.save();
+      
+      // Calcular alpha para fade out
+      let alpha = 1;
+      if (particle.fadeOut) {
+        alpha = particle.life / particle.maxLife;
+      }
+      
+      // Aplicar cor com alpha
+      const color = this.hexToRgba(particle.color, alpha);
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      
+      // Posicionar e rotacionar
+      ctx.translate(particle.x, particle.y);
+      ctx.rotate(particle.rotation);
+      
+      // Desenhar forma
+      switch (particle.shape) {
+        case 'circle':
+          ctx.beginPath();
+          ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+        case 'square':
+          ctx.fillRect(-particle.size/2, -particle.size/2, particle.size, particle.size);
+          break;
+        case 'star':
+          this.drawStar(ctx, 0, 0, 5, particle.size, particle.size/2);
+          break;
+      }
+      
+      // Efeito de brilho para partículas mágicas
+      if (particle.behavior === 'magic' || particle.behavior === 'fire') {
+        ctx.shadowBlur = particle.size * 2;
+        ctx.shadowColor = particle.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      ctx.restore();
+    });
+  }
+
+  drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    
+    for (let i = 0; i < spikes; i++) {
+      x = cx + Math.cos(rot) * outerRadius;
+      y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+    }
+    
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+}
+
+// Sistema de ondas progressivas
+class WaveManager {
+  constructor() {
+    this.currentWave = 0;
+    this.enemiesInWave = 0;
+    this.enemiesSpawned = 0;
+    this.enemiesKilled = 0;
+    this.waveActive = false;
+    this.waveStartTime = 0;
+    this.intermissionTime = 5000; // 5 segundos entre ondas
+    this.nextWaveTime = 0;
+    this.bossWave = false;
+  }
+
+  getWaveConfig(waveNumber) {
+    const baseEnemies = 5;
+    const isBossWave = waveNumber % 5 === 0;
+    
+    return {
+      enemyCount: isBossWave ? 1 : baseEnemies + (waveNumber * 2),
+      enemyTypes: this.getEnemyTypesForWave(waveNumber),
+      spawnRate: Math.max(500, 2000 - (waveNumber * 100)), // Spawn mais rápido
+      enemyHealthMultiplier: 1 + (waveNumber * 0.2),
+      enemySpeedMultiplier: 1 + (waveNumber * 0.1),
+      enemyDamageMultiplier: 1 + (waveNumber * 0.15),
+      isBossWave,
+      rewards: {
+        xp: 50 * waveNumber,
+        score: 100 * waveNumber,
+        health: isBossWave ? 50 : 10
+      }
+    };
+  }
+
+  getEnemyTypesForWave(waveNumber) {
+    const types = ['basic'];
+    
+    if (waveNumber >= 3) types.push('zigzag');
+    if (waveNumber >= 5) types.push('shooter');
+    if (waveNumber >= 8) types.push('tank');
+    if (waveNumber >= 10) types.push('teleporter');
+    
+    // Boss waves
+    if (waveNumber % 5 === 0) {
+      return ['boss'];
+    }
+    
+    return types;
+  }
+
+  startNextWave() {
+    this.currentWave++;
+    const config = this.getWaveConfig(this.currentWave);
+    
+    this.enemiesInWave = config.enemyCount;
+    this.enemiesSpawned = 0;
+    this.enemiesKilled = 0;
+    this.waveActive = true;
+    this.bossWave = config.isBossWave;
+    this.waveStartTime = Date.now();
+    
+    return config;
+  }
+
+  canSpawnEnemy(currentTime) {
+    if (!this.waveActive) return false;
+    if (this.enemiesSpawned >= this.enemiesInWave) return false;
+    
+    const config = this.getWaveConfig(this.currentWave);
+    const timeSinceStart = currentTime - this.waveStartTime;
+    const expectedSpawns = Math.floor(timeSinceStart / config.spawnRate);
+    
+    return expectedSpawns > this.enemiesSpawned;
+  }
+
+  spawnEnemy(gameState) {
+    if (!this.canSpawnEnemy(Date.now())) return null;
+    
+    const config = this.getWaveConfig(this.currentWave);
+    const types = config.enemyTypes;
+    const type = types[Math.floor(Math.random() * types.length)];
+    
+    this.enemiesSpawned++;
+    
+    return this.createEnemyOfType(type, config);
+  }
+
+  createEnemyOfType(type, waveConfig) {
+    const baseStats = {
+      basic: { hp: 30, speed: 1, damage: 10, size: 1, color: '#22c55e' },
+      zigzag: { hp: 40, speed: 1.5, damage: 15, size: 1, color: '#3b82f6' },
+      tank: { hp: 100, speed: 0.5, damage: 30, size: 1.5, color: '#6b7280' },
+      shooter: { hp: 50, speed: 0.8, damage: 20, size: 1, color: '#f97316' },
+      teleporter: { hp: 60, speed: 2, damage: 25, size: 1, color: '#a855f7' },
+      boss: { hp: 500, speed: 0.3, damage: 50, size: 3, color: '#dc2626' }
+    };
+    
+    const stats = baseStats[type];
+    const x = type === 'boss' 
+      ? GAME_CONFIG.width / 2 - 50 
+      : Math.random() * (GAME_CONFIG.width - 40);
+    
+    return {
+      x,
+      y: -40 * stats.size,
+      width: 25 * stats.size,
+      height: 25 * stats.size,
+      speed: stats.speed * waveConfig.enemySpeedMultiplier,
+      hp: stats.hp * waveConfig.enemyHealthMultiplier,
+      maxHp: stats.hp * waveConfig.enemyHealthMultiplier,
+      damage: stats.damage * waveConfig.enemyDamageMultiplier,
+      color: stats.color,
+      type,
+      behavior: type,
+      // Propriedades específicas
+      shootCooldown: type === 'shooter' ? 2000 : 0,
+      lastShot: 0,
+      teleportCooldown: type === 'teleporter' ? 3000 : 0,
+      lastTeleport: 0,
+      zigzagPhase: 0
+    };
+  }
+
+  onEnemyKilled(enemy) {
+    this.enemiesKilled++;
+    
+    if (this.enemiesKilled >= this.enemiesInWave) {
+      this.completeWave();
+    }
+  }
+
+  completeWave() {
+    this.waveActive = false;
+    this.nextWaveTime = Date.now() + this.intermissionTime;
+    
+    const config = this.getWaveConfig(this.currentWave);
+    return config.rewards;
+  }
+
+  update(currentTime) {
+    if (!this.waveActive && currentTime >= this.nextWaveTime && this.currentWave >= 0) {
+      return { startNewWave: true };
+    }
+    return { startNewWave: false };
+  }
+
+  getWaveStatus() {
+    return {
+      wave: this.currentWave,
+      active: this.waveActive,
+      enemiesRemaining: this.enemiesInWave - this.enemiesKilled,
+      totalEnemies: this.enemiesInWave,
+      isBossWave: this.bossWave,
+      timeToNextWave: this.waveActive ? 0 : Math.max(0, this.nextWaveTime - Date.now())
+    };
+  }
+}
+
 const POWER_UPS = {
   // OFENSIVOS
   common_offensive: [
@@ -119,9 +464,18 @@ function App() {
     },
     bullets: [],
     enemies: [],
+    enemyBullets: [],
     obstacles: [],
     explosions: [],
     particles: [],
+    particleSystem: new ParticleSystem(),
+    waveManager: new WaveManager(),
+    screenShake: {
+      intensity: 0,
+      duration: 0,
+      offsetX: 0,
+      offsetY: 0
+    },
     mouse: { x: 0, y: 0 },
     keys: {},
     gameStarted: false,
@@ -153,6 +507,184 @@ function App() {
     score: 0,
     kills: 0,
   });
+  const [waveStatus, setWaveStatus] = useState({
+    wave: 0,
+    active: false,
+    enemiesRemaining: 0,
+    totalEnemies: 0,
+    isBossWave: false,
+    timeToNextWave: 0
+  });
+
+  // Função para ativar screen shake
+  const triggerScreenShake = (intensity = 10, duration = 300) => {
+    const state = gameStateRef.current;
+    state.screenShake.intensity = intensity;
+    state.screenShake.duration = duration;
+  };
+
+  // Implementação dos comportamentos dos inimigos
+  const updateEnemyBehavior = (enemy, player, gameState) => {
+    const now = Date.now();
+    
+    switch (enemy.behavior) {
+      case 'basic':
+        enemy.y += enemy.speed;
+        break;
+        
+      case 'zigzag':
+        enemy.y += enemy.speed;
+        enemy.zigzagPhase += 0.1;
+        enemy.x += Math.sin(enemy.zigzagPhase) * 2;
+        break;
+        
+      case 'tank':
+        enemy.y += enemy.speed;
+        // Tank pode empurrar outros inimigos
+        break;
+        
+      case 'shooter':
+        enemy.y += enemy.speed * 0.5; // Move mais devagar
+        
+        // Atirar no jogador
+        if (now - enemy.lastShot > enemy.shootCooldown) {
+          const dx = player.x - enemy.x;
+          const dy = player.y - enemy.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 400) { // Alcance de tiro
+            gameState.enemyBullets.push({
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height,
+              vx: (dx / dist) * 4,
+              vy: (dy / dist) * 4,
+              width: 8,
+              height: 8,
+              damage: enemy.damage,
+              color: '#ff4444'
+            });
+            enemy.lastShot = now;
+          }
+        }
+        break;
+        
+      case 'teleporter':
+        enemy.y += enemy.speed;
+        
+        // Teleportar ocasionalmente
+        if (now - enemy.lastTeleport > enemy.teleportCooldown) {
+          // Efeito de teleporte
+          gameState.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
+            count: 20,
+            colors: ['#a855f7', '#ffffff'],
+            size: { min: 2, max: 8 },
+            speed: 6,
+            lifespan: 30,
+            behavior: 'magic'
+          });
+          
+          enemy.x = Math.random() * (GAME_CONFIG.width - enemy.width);
+          enemy.lastTeleport = now;
+          
+          // Efeito de chegada
+          gameState.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
+            count: 20,
+            colors: ['#a855f7', '#ffffff'],
+            size: { min: 2, max: 8 },
+            speed: 6,
+            lifespan: 30,
+            behavior: 'magic'
+          });
+        }
+        break;
+        
+      case 'boss':
+        // Movimento do boss
+        enemy.y = Math.min(enemy.y + enemy.speed, 100); // Para no topo da tela
+        
+        // Padrões de ataque do boss
+        const phase = Math.floor(enemy.hp / enemy.maxHp * 3); // 3 fases
+        
+        switch (phase) {
+          case 2: // Fase 1: Tiros em spread
+            if (now - enemy.lastShot > 1000) {
+              for (let i = -2; i <= 2; i++) {
+                gameState.enemyBullets.push({
+                  x: enemy.x + enemy.width / 2,
+                  y: enemy.y + enemy.height,
+                  vx: i * 2,
+                  vy: 4,
+                  width: 10,
+                  height: 10,
+                  damage: enemy.damage / 2,
+                  color: '#dc2626'
+                });
+              }
+              enemy.lastShot = now;
+            }
+            break;
+            
+          case 1: // Fase 2: Tiros direcionados rápidos
+            if (now - enemy.lastShot > 500) {
+              const dx = player.x - enemy.x;
+              const dy = player.y - enemy.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              
+              gameState.enemyBullets.push({
+                x: enemy.x + enemy.width / 2,
+                y: enemy.y + enemy.height,
+                vx: (dx / dist) * 6,
+                vy: (dy / dist) * 6,
+                width: 12,
+                height: 12,
+                damage: enemy.damage,
+                color: '#dc2626'
+              });
+              enemy.lastShot = now;
+            }
+            break;
+            
+          case 0: // Fase 3: Caos total
+            if (now - enemy.lastShot > 300) {
+              // Tiros em espiral
+              const angle = (now * 0.005) % (Math.PI * 2);
+              for (let i = 0; i < 4; i++) {
+                const a = angle + (i * Math.PI / 2);
+                gameState.enemyBullets.push({
+                  x: enemy.x + enemy.width / 2,
+                  y: enemy.y + enemy.height / 2,
+                  vx: Math.cos(a) * 5,
+                  vy: Math.sin(a) * 5,
+                  width: 8,
+                  height: 8,
+                  damage: enemy.damage * 0.7,
+                  color: '#dc2626'
+                });
+              }
+              enemy.lastShot = now;
+            }
+            break;
+        }
+        break;
+    }
+    
+    // Manter inimigos dentro dos limites
+    enemy.x = Math.max(0, Math.min(GAME_CONFIG.width - enemy.width, enemy.x));
+  };
+
+  const updateScreenShake = (state) => {
+    if (state.screenShake.duration > 0) {
+      state.screenShake.duration -= 16; // Assumindo 60 FPS
+      const factor = state.screenShake.duration / 300; // Normalizar
+      const intensity = state.screenShake.intensity * factor;
+      
+      state.screenShake.offsetX = (Math.random() - 0.5) * intensity;
+      state.screenShake.offsetY = (Math.random() - 0.5) * intensity;
+    } else {
+      state.screenShake.offsetX = 0;
+      state.screenShake.offsetY = 0;
+    }
+  };
 
   // Game initialization
   useEffect(() => {
@@ -203,6 +735,10 @@ function App() {
     gameStateRef.current.gameStarted = true;
     gameStateRef.current.gameOver = false;
     gameStateRef.current.gamePaused = false;
+    
+    // Iniciar primeira onda
+    const waveConfig = gameStateRef.current.waveManager.startNextWave();
+    
     setGameStarted(true);
     gameLoop();
   };
@@ -226,9 +762,13 @@ function App() {
     };
     state.bullets = [];
     state.enemies = [];
+    state.enemyBullets = [];
     state.obstacles = [];
     state.explosions = [];
     state.particles = [];
+    state.particleSystem = new ParticleSystem();
+    state.waveManager = new WaveManager();
+    state.screenShake = { intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
     state.level = 1;
     state.xp = 0;
     state.xpToNext = GAME_CONFIG.xpPerLevel;
@@ -262,6 +802,15 @@ function App() {
     const state = gameStateRef.current;
     const now = Date.now();
 
+    // Update screen shake
+    updateScreenShake(state);
+
+    // Update wave manager
+    const waveUpdate = state.waveManager.update(now);
+    if (waveUpdate.startNewWave) {
+      const waveConfig = state.waveManager.startNextWave();
+    }
+
     // Update player
     updatePlayer(state);
 
@@ -271,13 +820,13 @@ function App() {
       state.player.lastShot = now;
     }
 
-    // Spawn enemies
-    if (now - state.lastEnemySpawn > GAME_CONFIG.enemySpawnRate / state.difficulty) {
-      spawnEnemy(state);
-      state.lastEnemySpawn = now;
+    // Spawn enemies via wave manager
+    const newEnemy = state.waveManager.spawnEnemy(state);
+    if (newEnemy) {
+      state.enemies.push(newEnemy);
     }
 
-    // Spawn obstacles
+    // Spawn obstacles occasionally
     if (now - state.lastObstacleSpawn > GAME_CONFIG.obstacleSpawnRate) {
       spawnObstacle(state);
       state.lastObstacleSpawn = now;
@@ -290,10 +839,16 @@ function App() {
       return bullet.y > 0 && bullet.x > 0 && bullet.x < GAME_CONFIG.width;
     });
 
-    // Update enemies
+    // Update enemy bullets
+    state.enemyBullets = state.enemyBullets.filter(bullet => {
+      bullet.x += bullet.vx;
+      bullet.y += bullet.vy;
+      return bullet.y < GAME_CONFIG.height && bullet.x > 0 && bullet.x < GAME_CONFIG.width;
+    });
+
+    // Update enemies with behaviors
     state.enemies.forEach(enemy => {
-      enemy.y += enemy.speed * state.difficulty;
-      enemy.x += Math.sin(enemy.y * 0.01) * 0.5; // Slight wave movement
+      updateEnemyBehavior(enemy, state.player, state);
     });
 
     // Update obstacles
@@ -305,11 +860,17 @@ function App() {
     state.enemies = state.enemies.filter(enemy => enemy.y < GAME_CONFIG.height + 50);
     state.obstacles = state.obstacles.filter(obstacle => obstacle.y < GAME_CONFIG.height + 50);
 
+    // Update particle system
+    state.particleSystem.update();
+
     // Collision detection
     checkCollisions(state);
 
     // Update particles and explosions
     updateParticles(state);
+
+    // Update wave status
+    setWaveStatus(state.waveManager.getWaveStatus());
 
     // Update stats
     setGameStats({
@@ -390,22 +951,20 @@ function App() {
       height: 6,
       damage: player.damage,
     });
-  };
 
-  const spawnEnemy = (state) => {
-    const x = Math.random() * (GAME_CONFIG.width - 40);
-    const enemy = {
-      x: x,
-      y: -40,
-      width: 25 + Math.random() * 15,
-      height: 25 + Math.random() * 15,
-      speed: 1 + Math.random() * 2 + (state.difficulty * 0.5),
-      hp: 30 + (state.level * 10),
-      maxHp: 30 + (state.level * 10),
-      damage: 10 + (state.level * 2),
-      color: `hsl(${Math.random() * 360}, 100%, 60%)`, // Neon colors
-    };
-    state.enemies.push(enemy);
+    // Partículas de tiro mágico
+    state.particleSystem.emit(
+      player.x + player.width / 2, 
+      player.y + player.height / 2, 
+      {
+        count: 3,
+        colors: ['#ffff00', '#ffa500'],
+        size: { min: 1, max: 3 },
+        speed: 2,
+        lifespan: 20,
+        behavior: 'magic'
+      }
+    );
   };
 
   const spawnObstacle = (state) => {
@@ -436,8 +995,18 @@ function App() {
           enemy.hp -= bullet.damage;
           state.bullets.splice(bulletIndex, 1);
 
-          // Create hit particle
-          createParticles(state, enemy.x + enemy.width/2, enemy.y + enemy.height/2, enemy.color);
+          // Hit particles
+          state.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
+            count: 8,
+            colors: [enemy.color, '#ffffff'],
+            size: { min: 2, max: 4 },
+            speed: 4,
+            lifespan: 20,
+            behavior: 'explosion'
+          });
+
+          // Screen shake pequeno no hit
+          triggerScreenShake(3, 100);
 
           if (enemy.hp <= 0) {
             // Enemy died
@@ -445,12 +1014,30 @@ function App() {
             state.kills++;
             state.score += 10 + (state.level * 5);
             
+            // Notify wave manager
+            state.waveManager.onEnemyKilled(enemy);
+            
             // Gain XP
             const xpGain = 10 + (state.level * 2);
             state.xp += xpGain;
             
-            // Create explosion
-            createExplosion(state, enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+            // Death explosion
+            state.particleSystem.emit(
+              enemy.x + enemy.width/2, 
+              enemy.y + enemy.height/2,
+              {
+                count: 30,
+                colors: [enemy.color, '#ffffff', '#ffff00'],
+                size: { min: 2, max: 6 },
+                speed: 8,
+                lifespan: 40,
+                behavior: 'explosion',
+                spread: Math.PI * 2
+              }
+            );
+
+            // Screen shake médio na morte
+            triggerScreenShake(8, 200);
 
             // Level up check
             if (state.xp >= state.xpToNext) {
@@ -470,9 +1057,53 @@ function App() {
         
         // Player hit by enemy
         player.hp -= enemy.damage;
-        createParticles(state, player.x + player.width/2, player.y + player.height/2, '#ff4444');
+        
+        // Hit particles
+        state.particleSystem.emit(player.x + player.width/2, player.y + player.height/2, {
+          count: 15,
+          colors: ['#ff4444', '#ffffff'],
+          size: { min: 2, max: 5 },
+          speed: 6,
+          lifespan: 30,
+          behavior: 'explosion'
+        });
+
+        // Screen shake forte no dano do player
+        triggerScreenShake(15, 200);
         
         if (player.hp <= 0) {
+          triggerScreenShake(30, 500); // Shake muito forte no game over
+          gameOver(state);
+        }
+      }
+    });
+
+    // Player vs Enemy Bullet collisions
+    state.enemyBullets.forEach((bullet, bulletIndex) => {
+      if (player.x < bullet.x + bullet.width &&
+          player.x + player.width > bullet.x &&
+          player.y < bullet.y + bullet.height &&
+          player.y + player.height > bullet.y) {
+        
+        // Player hit by enemy bullet
+        player.hp -= bullet.damage;
+        state.enemyBullets.splice(bulletIndex, 1);
+        
+        // Hit particles
+        state.particleSystem.emit(player.x + player.width/2, player.y + player.height/2, {
+          count: 10,
+          colors: ['#ff4444', '#ffffff'],
+          size: { min: 2, max: 4 },
+          speed: 5,
+          lifespan: 25,
+          behavior: 'explosion'
+        });
+
+        // Screen shake no dano
+        triggerScreenShake(12, 150);
+        
+        if (player.hp <= 0) {
+          triggerScreenShake(30, 500);
           gameOver(state);
         }
       }
@@ -487,9 +1118,22 @@ function App() {
         
         // Player hit by obstacle
         player.hp -= obstacle.damage;
-        createParticles(state, player.x + player.width/2, player.y + player.height/2, '#ff8800');
+        
+        // Obstacle impact particles
+        state.particleSystem.emit(player.x + player.width/2, player.y + player.height/2, {
+          count: 20,
+          colors: ['#888888', '#ffffff'],
+          size: { min: 3, max: 7 },
+          speed: 8,
+          lifespan: 35,
+          behavior: 'explosion'
+        });
+
+        // Screen shake muito forte por obstáculo
+        triggerScreenShake(25, 400);
         
         if (player.hp <= 0) {
+          triggerScreenShake(40, 600);
           gameOver(state);
         }
       }
@@ -658,6 +1302,10 @@ function App() {
       return;
     }
 
+    // Aplicar screen shake
+    ctx.save();
+    ctx.translate(state.screenShake.offsetX, state.screenShake.offsetY);
+
     // Render player (wizard)
     const player = state.player;
     ctx.fillStyle = '#ff6b35';
@@ -678,6 +1326,15 @@ function App() {
       ctx.shadowBlur = 0;
     });
 
+    // Render enemy bullets
+    state.enemyBullets.forEach(bullet => {
+      ctx.fillStyle = bullet.color || '#ff4444';
+      ctx.shadowColor = bullet.color || '#ff4444';
+      ctx.shadowBlur = 3;
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      ctx.shadowBlur = 0;
+    });
+
     // Render enemies
     state.enemies.forEach(enemy => {
       ctx.fillStyle = enemy.color;
@@ -692,6 +1349,14 @@ function App() {
       ctx.fillRect(enemy.x, enemy.y - 8, enemy.width, 4);
       ctx.fillStyle = '#00ff00';
       ctx.fillRect(enemy.x, enemy.y - 8, enemy.width * healthPercent, 4);
+      
+      // Boss indicator
+      if (enemy.type === 'boss') {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BOSS', enemy.x + enemy.width/2, enemy.y - 15);
+      }
     });
 
     // Render obstacles
@@ -702,6 +1367,9 @@ function App() {
       ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
       ctx.shadowBlur = 0;
     });
+
+    // Render particle system
+    state.particleSystem.render(ctx);
 
     // Render particles
     state.particles.forEach(particle => {
@@ -723,6 +1391,35 @@ function App() {
     // Render ground
     ctx.fillStyle = '#333333';
     ctx.fillRect(0, GAME_CONFIG.height - 20, GAME_CONFIG.width, 20);
+
+    // Restaurar contexto (remover screen shake)
+    ctx.restore();
+  };
+
+  // Wave Display Component
+  const WaveDisplay = ({ waveStatus }) => {
+    if (!waveStatus.active && waveStatus.timeToNextWave > 0) {
+      const seconds = Math.ceil(waveStatus.timeToNextWave / 1000);
+      return (
+        <div className="wave-intermission">
+          <h2>Onda {waveStatus.wave} Completa!</h2>
+          <p>Próxima onda em: {seconds}s</p>
+          {waveStatus.wave % 5 === 4 && <p className="boss-warning">⚠️ BOSS CHEGANDO! ⚠️</p>}
+        </div>
+      );
+    }
+    
+    if (waveStatus.active) {
+      return (
+        <div className="wave-info">
+          <span>Onda {waveStatus.wave}</span>
+          {waveStatus.isBossWave && <span className="boss-warning">BOSS!</span>}
+          <span>Inimigos: {waveStatus.enemiesRemaining}/{waveStatus.totalEnemies}</span>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   return (
@@ -754,6 +1451,9 @@ function App() {
               <span>Kills: {gameStats.kills}</span>
             </div>
           </div>
+          
+          {/* Wave Display */}
+          <WaveDisplay waveStatus={waveStatus} />
         </div>
       )}
 
@@ -788,6 +1488,7 @@ function App() {
           <div className="game-over-modal">
             <h2>Game Over!</h2>
             <p>Nível Final: {gameStats.level}</p>
+            <p>Onda Final: {waveStatus.wave}</p>
             <p>Pontuação: {gameStats.score}</p>
             <p>Kills: {gameStats.kills}</p>
             <button onClick={() => { resetGame(); startGame(); }}>
