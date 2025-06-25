@@ -294,18 +294,31 @@ class WaveManager {
 
   createEnemyOfType(type, waveConfig) {
     const baseStats = {
-      basic: { hp: 30, speed: 1.5, damage: 10, size: 1, emoji: '👹', color: '#22c55e' },
-      zigzag: { hp: 40, speed: 2, damage: 15, size: 1, emoji: '🐍', color: '#3b82f6' },
-      tank: { hp: 100, speed: 0.8, damage: 30, size: 1.5, emoji: '🛡️', color: '#6b7280' },
-      shooter: { hp: 50, speed: 1.2, damage: 20, size: 1, emoji: '🏹', color: '#f97316' },
-      teleporter: { hp: 60, speed: 2.5, damage: 25, size: 1, emoji: '👻', color: '#a855f7' },
-      boss: { hp: 500, speed: 0.5, damage: 50, size: 2.5, emoji: '🐲', color: '#dc2626' }
+      basic: { hp: 25, speed: 2, damage: 12, size: 1, emoji: '👹', color: '#22c55e' },
+      zigzag: { hp: 35, speed: 2.5, damage: 18, size: 1, emoji: '🐍', color: '#3b82f6' },
+      tank: { hp: 80, speed: 1.2, damage: 35, size: 1.5, emoji: '🛡️', color: '#6b7280' },
+      shooter: { hp: 40, speed: 1.8, damage: 22, size: 1, emoji: '🏹', color: '#f97316' },
+      teleporter: { hp: 50, speed: 3, damage: 28, size: 1, emoji: '👻', color: '#a855f7' },
+      boss: { hp: 400, speed: 0.8, damage: 60, size: 2.5, emoji: '🐲', color: '#dc2626' }
     };
     
     const stats = baseStats[type];
-    const x = type === 'boss' 
-      ? GAME_CONFIG.width / 2 - 50 
-      : Math.random() * (GAME_CONFIG.width - 60);
+    
+    // Spawnar direcionado ao jogador
+    const player = this.gameState?.player || { x: GAME_CONFIG.width / 2 };
+    let x;
+    
+    if (type === 'boss') {
+      x = GAME_CONFIG.width / 2 - 50;
+    } else {
+      // Spawnar em direção geral ao jogador
+      const playerSide = player.x < GAME_CONFIG.width / 2 ? 'left' : 'right';
+      if (playerSide === 'left') {
+        x = Math.random() * (GAME_CONFIG.width * 0.7); // Lado esquerdo + centro
+      } else {
+        x = (GAME_CONFIG.width * 0.3) + Math.random() * (GAME_CONFIG.width * 0.7); // Centro + lado direito
+      }
+    }
     
     return {
       x,
@@ -321,13 +334,15 @@ class WaveManager {
       type,
       behavior: type,
       // Propriedades específicas
-      shootCooldown: type === 'shooter' || type === 'boss' ? 1500 : 0,
+      shootCooldown: type === 'shooter' || type === 'boss' ? 800 : 0, // Mais rápido
       lastShot: 0,
-      teleportCooldown: type === 'teleporter' ? 3000 : 0,
+      teleportCooldown: type === 'teleporter' ? 2000 : 0, // Mais rápido
       lastTeleport: 0,
       zigzagPhase: 0,
-      pursuitRange: 300, // Alcance de perseguição
-      attackRange: 200    // Alcance de ataque
+      pursuitRange: 400, // Alcance maior de perseguição
+      attackRange: 300,   // Alcance maior de ataque
+      targetX: player.x,  // Target inicial
+      targetY: player.y
     };
   }
 
