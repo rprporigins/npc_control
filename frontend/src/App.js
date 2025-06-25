@@ -1064,15 +1064,18 @@ function App() {
   };
 
   const spawnObstacle = (state) => {
-    const x = Math.random() * (GAME_CONFIG.width - 80);
+    const x = Math.random() * (GAME_CONFIG.width - 120);
+    const size = 80 + Math.random() * 60; // Blocos maiores
     const obstacle = {
       x: x,
-      y: -80,
-      width: 60 + Math.random() * 40,
-      height: 60 + Math.random() * 40,
-      speed: 4 + Math.random() * 3,
-      damage: 60,
-      emoji: '🪨'
+      y: -size,
+      width: size,
+      height: size,
+      speed: 2 + Math.random() * 2, // Mais devagar
+      damage: 70,
+      emoji: '🪨',
+      hp: 3, // Obstáculos têm vida para serem destruídos
+      maxHp: 3
     };
     state.obstacles.push(obstacle);
   };
