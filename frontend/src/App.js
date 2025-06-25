@@ -217,16 +217,19 @@ class WaveManager {
   }
 
   getWaveConfig(waveNumber) {
-    const baseEnemies = 5;
+    const baseEnemies = 3;
     const isBossWave = waveNumber % 5 === 0;
     
+    // Aumento exponencial de inimigos
+    const enemyMultiplier = Math.pow(1.5, Math.floor(waveNumber / 2));
+    
     return {
-      enemyCount: isBossWave ? 1 : baseEnemies + (waveNumber * 2),
+      enemyCount: isBossWave ? 1 : Math.floor(baseEnemies * enemyMultiplier),
       enemyTypes: this.getEnemyTypesForWave(waveNumber),
-      spawnRate: Math.max(800, 2500 - (waveNumber * 100)), // Spawn mais lento
-      enemyHealthMultiplier: 1 + (waveNumber * 0.2),
-      enemySpeedMultiplier: 1 + (waveNumber * 0.1),
-      enemyDamageMultiplier: 1 + (waveNumber * 0.15),
+      spawnRate: Math.max(300, 1200 - (waveNumber * 50)), // Spawn muito mais rápido
+      enemyHealthMultiplier: 1 + (waveNumber * 0.15),
+      enemySpeedMultiplier: 1 + (waveNumber * 0.08),
+      enemyDamageMultiplier: 1 + (waveNumber * 0.12),
       isBossWave,
       rewards: {
         xp: 50 * waveNumber,
