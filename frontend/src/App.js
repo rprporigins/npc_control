@@ -1420,30 +1420,83 @@ function App() {
     
     switch (powerUp.id) {
       case 'magic_damage':
-        player.damage *= 1.05;
+        player.damage *= 1.08; // Mais significativo
         break;
       case 'projectile_speed':
-        break; // Applied in bullet creation
+        // Aplicado na criação de bullets
+        player.projectileSpeedMultiplier = (player.projectileSpeedMultiplier || 1) * 1.15;
+        break;
       case 'fire_rate_1':
-        player.fireRate *= 0.95;
+        player.fireRate *= 0.92; // Mais notável
         break;
       case 'fire_rate_2':
-        player.fireRate *= 0.90;
+        player.fireRate *= 0.85; // Muito mais rápido
         break;
       case 'max_hp_10':
-        player.maxHp += 10;
-        player.hp += 10;
+        player.maxHp += 15; // Mais vida
+        player.hp += 15;
         break;
       case 'max_hp_30':
-        player.maxHp += 30;
-        player.hp += 30;
+        player.maxHp += 40; // Muito mais vida
+        player.hp += 40;
         break;
       case 'move_speed_5':
       case 'move_speed_util_5':
-        // Applied in movement logic
+        GAME_CONFIG.playerSpeed *= 1.1; // Aplicado diretamente
         break;
-      // Add more power-up effects as needed
+      case 'double_shot':
+        player.doubleShotChance = (player.doubleShotChance || 0) + 0.1;
+        break;
+      case 'pierce_1':
+        player.pierceCount = (player.pierceCount || 0) + 1;
+        break;
+      case 'pierce_2':
+        player.pierceCount = (player.pierceCount || 0) + 2;
+        break;
+      case 'triple_shot':
+        player.tripleShotChance = (player.tripleShotChance || 0) + 0.05;
+        break;
+      case 'hp_regen':
+        player.hpRegenRate = (player.hpRegenRate || 0) + 1;
+        player.lastHpRegen = Date.now();
+        break;
+      case 'exp_gain_10':
+        player.xpMultiplier = (player.xpMultiplier || 1) * 1.1;
+        break;
+      case 'exp_gain_15':
+        player.xpMultiplier = (player.xpMultiplier || 1) * 1.15;
+        break;
+      case 'area_damage':
+        player.areaDamageRadius = (player.areaDamageRadius || 0) + 20;
+        break;
+      case 'residual_flame':
+        player.residualFlame = true;
+        break;
+      case 'chain_lightning':
+        player.chainLightning = (player.chainLightning || 0) + 2;
+        break;
+      case 'homing_missiles':
+        player.homingChance = (player.homingChance || 0) + 0.15;
+        break;
+      default:
+        console.log('Power-up não implementado:', powerUp.id);
+        break;
     }
+    
+    // Feedback visual
+    state.particleSystem.emit(
+      player.x + player.width / 2,
+      player.y + player.height / 2,
+      {
+        count: 20,
+        colors: ['#ffd700', '#ffff00', '#ffffff'],
+        size: { min: 3, max: 8 },
+        speed: 6,
+        lifespan: 40,
+        behavior: 'magic',
+        spread: Math.PI * 2
+      }
+    );
   };
 
   const gameOver = (state) => {
