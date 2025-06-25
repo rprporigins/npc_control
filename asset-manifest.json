@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/npc_control/static/css/main.53c85f74.css",
+    "main.js": "/npc_control/static/js/main.f1397ed6.js",
+    "index.html": "/npc_control/index.html",
+    "main.53c85f74.css.map": "/npc_control/static/css/main.53c85f74.css.map",
+    "main.f1397ed6.js.map": "/npc_control/static/js/main.f1397ed6.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.53c85f74.css",
+    "static/js/main.f1397ed6.js"
+  ]
+}
