@@ -1,7 +1,7 @@
 {
   "name": "mago-roguelike",
   "version": "1.0.0",
-  "homepage": "https://rprporigins.github.io/npc_control/game",
+  "homepage": "https://rprporigins.github.io/npc_control",
   "private": true,
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.4",
