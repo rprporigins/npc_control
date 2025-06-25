@@ -2,7 +2,7 @@
 
 Um jogo roguelike épico desenvolvido em React com HTML5 Canvas, onde você controla um mago poderoso enfrentando ondas de inimigos!
 
-## 🎮 [JOGAR AGORA](https://SEU_USUARIO.github.io/SEU_REPOSITORIO)
+## 🎮 [JOGAR AGORA](https://rprporigins.github.io/npc_control)
 
 ## 🚀 Funcionalidades
 
