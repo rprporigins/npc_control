@@ -1844,7 +1844,7 @@ function App() {
             <div className="health-section">
               <div className="health-bar">
                 <div className="health-fill" style={{ width: `${(gameStats.hp / gameStats.maxHp) * 100}%` }} />
-                <span className="health-text">❤️ {gameStats.hp}/{gameStats.maxHp}</span>
+                <span className="health-text">❤️ {Math.round(gameStats.hp)}/{Math.round(gameStats.maxHp)}</span>
               </div>
               {gameStateRef.current.player.shield > 0 && (
                 <div className="shield-display">🛡️ {gameStateRef.current.player.shield}</div>
