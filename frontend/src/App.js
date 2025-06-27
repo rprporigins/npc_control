@@ -259,7 +259,7 @@ class ParticleSystem {
   }
 }
 
-// Sistema de ondas com spawn contínuo
+// Sistema de ondas com duração fixa
 class WaveManager {
   constructor() {
     this.currentWave = 0;
@@ -268,27 +268,29 @@ class WaveManager {
     this.enemiesKilled = 0;
     this.waveActive = false;
     this.waveStartTime = 0;
-    this.intermissionTime = 3000; // Intermissão mais curta
+    this.waveDuration = 30000; // 30 segundos por onda
+    this.intermissionTime = 5000; // 5 segundos entre ondas
     this.nextWaveTime = 0;
     this.bossWave = false;
     this.continuousSpawnActive = true;
   }
 
   getWaveConfig(waveNumber) {
-    const baseEnemies = 15; // Muito mais inimigos
-    const isBossWave = waveNumber % 5 === 0;
+    const baseEnemies = 8; // Número base mais razoável
+    const isBossWave = waveNumber % 5 === 0 && waveNumber > 0; // Boss a cada 5 ondas, garantido
     
-    // Aumento exponencial mais agressivo
-    const enemyMultiplier = Math.pow(1.8, Math.floor(waveNumber / 2));
+    // Aumento mais controlado
+    const enemyMultiplier = 1 + (waveNumber * 0.3);
     
     return {
-      enemyCount: isBossWave ? 3 : Math.floor(baseEnemies * enemyMultiplier), // Mais bosses também
+      enemyCount: isBossWave ? 2 : Math.floor(baseEnemies * enemyMultiplier),
       enemyTypes: this.getEnemyTypesForWave(waveNumber),
-      spawnRate: Math.max(200, 800 - (waveNumber * 30)), // Spawn extremamente rápido
+      spawnRate: Math.max(800, 1500 - (waveNumber * 50)), // Spawn mais controlado
       enemyHealthMultiplier: 1 + (waveNumber * 0.1),
-      enemySpeedMultiplier: 1 + (waveNumber * 0.05),
+      enemySpeedMultiplier: 0.5 + (waveNumber * 0.1), // Velocidade escala com wave
       enemyDamageMultiplier: 1 + (waveNumber * 0.08),
       isBossWave,
+      waveDuration: this.waveDuration,
       rewards: {
         xp: 30 * waveNumber,
         score: 80 * waveNumber,
@@ -298,13 +300,14 @@ class WaveManager {
   }
 
   getEnemyTypesForWave(waveNumber) {
-    const types = ['basic', 'shooter']; // Sempre incluir shooters
+    const types = ['basic'];
     
-    if (waveNumber >= 2) types.push('zigzag');
-    if (waveNumber >= 3) types.push('tank');
-    if (waveNumber >= 4) types.push('teleporter');
+    if (waveNumber >= 2) types.push('shooter'); // Shooters desde wave 2
+    if (waveNumber >= 3) types.push('zigzag');
+    if (waveNumber >= 5) types.push('tank');
+    if (waveNumber >= 7) types.push('teleporter');
     
-    if (waveNumber % 5 === 0) {
+    if (waveNumber % 5 === 0 && waveNumber > 0) {
       return ['boss'];
     }
     
@@ -329,6 +332,13 @@ class WaveManager {
   canSpawnEnemy(currentTime) {
     if (!this.continuousSpawnActive) return false;
     
+    // Parar spawn se a onda já durou muito tempo
+    const waveTimeElapsed = currentTime - this.waveStartTime;
+    if (waveTimeElapsed >= this.waveDuration) {
+      this.completeWave();
+      return false;
+    }
+    
     const config = this.getWaveConfig(this.currentWave);
     const timeSinceStart = currentTime - this.waveStartTime;
     const expectedSpawns = Math.floor(timeSinceStart / config.spawnRate);
@@ -350,12 +360,12 @@ class WaveManager {
 
   createEnemyOfType(type, waveConfig, gameState) {
     const baseStats = {
-      basic: { hp: 20, speed: 2.5, damage: 15, size: 1, emoji: '👹', color: '#22c55e' },
-      zigzag: { hp: 25, speed: 3, damage: 18, size: 1, emoji: '🐍', color: '#3b82f6' },
-      tank: { hp: 60, speed: 1.5, damage: 35, size: 1.5, emoji: '🛡️', color: '#6b7280' },
-      shooter: { hp: 30, speed: 2, damage: 20, size: 1, emoji: '🏹', color: '#f97316' },
-      teleporter: { hp: 35, speed: 3.5, damage: 25, size: 1, emoji: '👻', color: '#a855f7' },
-      boss: { hp: 300, speed: 1, damage: 50, size: 2.5, emoji: '🐲', color: '#dc2626' }
+      basic: { hp: 25, speed: 1.5, damage: 12, size: 1, emoji: '👹', color: '#22c55e' },
+      zigzag: { hp: 30, speed: 1.8, damage: 15, size: 1, emoji: '🐍', color: '#3b82f6' },
+      tank: { hp: 80, speed: 0.8, damage: 25, size: 1.5, emoji: '🛡️', color: '#6b7280' },
+      shooter: { hp: 35, speed: 1.2, damage: 18, size: 1, emoji: '🏹', color: '#f97316' },
+      teleporter: { hp: 40, speed: 2, damage: 20, size: 1, emoji: '👻', color: '#a855f7' },
+      boss: { hp: 200, speed: 0.6, damage: 30, size: 2.5, emoji: '🐲', color: '#dc2626' }
     };
     
     const stats = baseStats[type];
@@ -363,24 +373,22 @@ class WaveManager {
     
     let x, y;
     
-    // Spawn em grupos e de diferentes direções
     if (type === 'boss') {
       x = GAME_CONFIG.width / 2 - 50;
       y = -60 * stats.size;
     } else {
-      // 30% chance de spawn lateral, 70% do topo
-      if (Math.random() < 0.3) {
-        // Spawn lateral
+      // 20% chance de spawn lateral, 80% do topo
+      if (Math.random() < 0.2) {
         const side = Math.random() < 0.5 ? 'left' : 'right';
         x = side === 'left' ? -40 : GAME_CONFIG.width + 40;
         y = Math.random() * (GAME_CONFIG.height * 0.6);
       } else {
-        // Spawn do topo em direção ao jogador
+        // Spawn mais próximo ao jogador
         const playerSide = player.x < GAME_CONFIG.width / 2 ? 'left' : 'right';
         if (playerSide === 'left') {
-          x = Math.random() * (GAME_CONFIG.width * 0.8);
+          x = Math.random() * (GAME_CONFIG.width * 0.7);
         } else {
-          x = (GAME_CONFIG.width * 0.2) + Math.random() * (GAME_CONFIG.width * 0.8);
+          x = (GAME_CONFIG.width * 0.3) + Math.random() * (GAME_CONFIG.width * 0.7);
         }
         y = -60 * stats.size;
       }
@@ -392,46 +400,68 @@ class WaveManager {
       width: 30 * stats.size,
       height: 30 * stats.size,
       speed: stats.speed * waveConfig.enemySpeedMultiplier,
-      hp: stats.hp * waveConfig.enemyHealthMultiplier,
-      maxHp: stats.hp * waveConfig.enemyHealthMultiplier,
-      damage: stats.damage * waveConfig.enemyDamageMultiplier,
+      hp: Math.round(stats.hp * waveConfig.enemyHealthMultiplier), // Arredondar HP
+      maxHp: Math.round(stats.hp * waveConfig.enemyHealthMultiplier),
+      damage: Math.round(stats.damage * waveConfig.enemyDamageMultiplier), // Arredondar damage
       color: stats.color,
       emoji: stats.emoji,
       type,
       behavior: type,
-      shootCooldown: type === 'shooter' || type === 'boss' ? 600 : 0, // Muito mais rápido
+      shootCooldown: type === 'shooter' ? 1200 : (type === 'boss' ? 800 : 0), // Cooldowns mais longos
       lastShot: 0,
-      teleportCooldown: type === 'teleporter' ? 1500 : 0,
+      teleportCooldown: type === 'teleporter' ? 2500 : 0, // Menos teleporte
       lastTeleport: 0,
       zigzagPhase: 0,
-      pursuitRange: 500,
-      attackRange: 400,
+      pursuitRange: 400,
+      attackRange: 300,
       targetX: player.x,
       targetY: player.y,
-      fromSide: x < 0 || x > GAME_CONFIG.width // Flag para inimigos laterais
+      fromSide: x < 0 || x > GAME_CONFIG.width
     };
   }
 
   onEnemyKilled(enemy) {
     this.enemiesKilled++;
-    // Não para o spawn contínuo, só conta kills
+    // Continue spawning until time runs out
+  }
+
+  completeWave() {
+    this.waveActive = false;
+    this.continuousSpawnActive = false;
+    this.nextWaveTime = Date.now() + this.intermissionTime;
+    
+    const config = this.getWaveConfig(this.currentWave);
+    return config.rewards;
   }
 
   update(currentTime) {
-    if (!this.waveActive && currentTime >= this.nextWaveTime && this.currentWave >= 0) {
+    // Verificar se a onda deve terminar por tempo
+    if (this.waveActive) {
+      const waveTimeElapsed = currentTime - this.waveStartTime;
+      if (waveTimeElapsed >= this.waveDuration) {
+        this.completeWave();
+      }
+    }
+    
+    if (!this.waveActive && currentTime >= this.nextWaveTime) {
       return { startNewWave: true };
     }
     return { startNewWave: false };
   }
 
   getWaveStatus() {
+    const now = Date.now();
+    const waveTimeElapsed = this.waveActive ? now - this.waveStartTime : 0;
+    const waveTimeRemaining = this.waveActive ? Math.max(0, this.waveDuration - waveTimeElapsed) : 0;
+    
     return {
       wave: this.currentWave,
       active: this.waveActive,
       enemiesRemaining: Math.max(0, this.enemiesInWave - this.enemiesKilled),
       totalEnemies: this.enemiesInWave,
       isBossWave: this.bossWave,
-      timeToNextWave: this.waveActive ? 0 : Math.max(0, this.nextWaveTime - Date.now()),
+      timeToNextWave: this.waveActive ? 0 : Math.max(0, this.nextWaveTime - now),
+      waveTimeRemaining: Math.ceil(waveTimeRemaining / 1000), // Em segundos
       continuousSpawn: this.continuousSpawnActive
     };
   }
