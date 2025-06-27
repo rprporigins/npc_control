@@ -513,7 +513,7 @@ function App() {
   const gameStateRef = useRef({
     player: {
       x: GAME_CONFIG.width / 2,
-      y: GAME_CONFIG.height - 150,
+      y: GAME_CONFIG.height - 200, // Ajustado para tela maior
       vx: 0,
       vy: 0,
       width: 40,
