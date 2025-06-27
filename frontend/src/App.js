@@ -586,6 +586,14 @@ function App() {
     playerPowerUps: [],
     kills: 0,
     difficulty: 1,
+    bossIntroduction: {
+      active: false,
+      boss: null,
+      startTime: 0,
+      duration: 3000, // 3 seconds introduction
+      scale: 0.1,
+      targetScale: 1.0
+    },
   });
 
   const [gameStarted, setGameStarted] = useState(false);
