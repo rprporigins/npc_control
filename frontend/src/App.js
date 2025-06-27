@@ -1796,7 +1796,7 @@ function App() {
 
     // Render ground
     ctx.fillStyle = '#333333';
-    ctx.fillRect(0, GAME_CONFIG.height - 40, GAME_CONFIG.width, 40);
+    ctx.fillRect(0, GAME_CONFIG.height - 60, GAME_CONFIG.width, 60); // Chão maior para tela HD
 
     ctx.restore();
   };
