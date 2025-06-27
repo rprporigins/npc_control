@@ -472,6 +472,39 @@ class WaveManager {
       continuousSpawn: this.continuousSpawnActive
     };
   }
+
+  startBossIntroduction(gameState, config) {
+    const boss = this.createEnemyOfType('boss', config, gameState);
+    
+    // Position boss at center of screen for introduction
+    boss.x = GAME_CONFIG.width / 2 - boss.width / 2;
+    boss.y = GAME_CONFIG.height / 2 - boss.height / 2;
+    boss.introStartTime = Date.now();
+    boss.dynamicDifficultyStart = Date.now();
+    
+    gameState.bossIntroduction = {
+      active: true,
+      boss: boss,
+      startTime: Date.now(),
+      duration: 3000,
+      scale: 0.1,
+      targetScale: 1.0
+    };
+    
+    // Pause continuous spawning during boss introduction
+    this.continuousSpawnActive = false;
+    
+    // Boss introduction particles
+    gameState.particleSystem.emit(boss.x + boss.width/2, boss.y + boss.height/2, {
+      count: 50,
+      colors: ['#dc2626', '#ffffff', '#ffff00', '#ff6600'],
+      size: { min: 5, max: 15 },
+      speed: 15,
+      lifespan: 80,
+      behavior: 'explosion',
+      spread: Math.PI * 2
+    });
+  }
 }
 
 const POWER_UPS = {
