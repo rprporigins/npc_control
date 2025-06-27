@@ -1069,8 +1069,8 @@ function App() {
     player.y = Math.max(0, player.y);
 
     // Ground collision
-    if (player.y >= GAME_CONFIG.height - player.height - 40) {
-      player.y = GAME_CONFIG.height - player.height - 40;
+    if (player.y >= GAME_CONFIG.height - player.height - 60) { // Ajustado para tela maior
+      player.y = GAME_CONFIG.height - player.height - 60;
       player.vy = 0;
       player.grounded = true;
       player.canJump = true;
