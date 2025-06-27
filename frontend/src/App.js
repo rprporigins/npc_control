@@ -1533,30 +1533,50 @@ function App() {
 
   const generatePowerUpChoices = () => {
     const choices = [];
-    const allPowerUps = Object.values(POWER_UPS).flat();
+    const playerLevel = gameStateRef.current.level;
     
-    const weights = {
-      common: 60,
-      uncommon: 30,
-      rare: 10
-    };
-
-    for (let i = 0; i < 3; i++) {
-      const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
-      let random = Math.random() * totalWeight;
-      let selectedRarity = 'common';
-      
-      for (const [rarity, weight] of Object.entries(weights)) {
-        random -= weight;
-        if (random <= 0) {
-          selectedRarity = rarity;
-          break;
-        }
+    // Determinar tier baseado no nível
+    let availableTiers = [];
+    if (playerLevel >= 8) {
+      availableTiers = ['tier1', 'tier2', 'tier3'];
+    } else if (playerLevel >= 4) {
+      availableTiers = ['tier1', 'tier2'];
+    } else {
+      availableTiers = ['tier1'];
+    }
+    
+    // Pegar power-ups dos tiers disponíveis
+    let availablePowerUps = [];
+    availableTiers.forEach(tier => {
+      const offensive = POWER_UPS[`${tier}_offensive`] || [];
+      const defensive = POWER_UPS[`${tier}_defensive`] || [];
+      availablePowerUps = [...availablePowerUps, ...offensive, ...defensive];
+    });
+    
+    // Filtrar power-ups já adquiridos múltiplas vezes (exceto os que podem stackar)
+    const stackablePowerUps = ['extra_projectile', 'magic_damage_small', 'magic_damage_medium', 'magic_damage_large', 
+                              'hp_boost_small', 'hp_boost_medium', 'hp_boost_large', 'shield_small', 'shield_medium', 'shield_large',
+                              'damage_reduction_small', 'damage_reduction_medium', 'damage_reduction_large',
+                              'speed_boost_small', 'speed_boost_medium', 'speed_boost_large'];
+    
+    const playerPowerUps = gameStateRef.current.playerPowerUps;
+    availablePowerUps = availablePowerUps.filter(powerUp => {
+      if (stackablePowerUps.includes(powerUp.id)) {
+        return true; // Pode ser escolhido novamente
       }
+      return !playerPowerUps.some(p => p.id === powerUp.id);
+    });
+    
+    // Selecionar 3 power-ups aleatórios
+    for (let i = 0; i < 3 && availablePowerUps.length > 0; i++) {
+      const randomIndex = Math.floor(Math.random() * availablePowerUps.length);
+      const selectedPowerUp = availablePowerUps[randomIndex];
+      choices.push(selectedPowerUp);
       
-      const rarityPowerUps = allPowerUps.filter(p => p.rarity === selectedRarity);
-      const powerUp = rarityPowerUps[Math.floor(Math.random() * rarityPowerUps.length)];
-      choices.push(powerUp);
+      // Remover da lista se não for stackable
+      if (!stackablePowerUps.includes(selectedPowerUp.id)) {
+        availablePowerUps.splice(randomIndex, 1);
+      }
     }
     
     return choices;
