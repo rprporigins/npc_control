@@ -1167,13 +1167,13 @@ function App() {
   };
 
   const spawnPit = (state) => {
-    const width = 120 + Math.random() * 80;
+    const width = 180 + Math.random() * 120; // Buracos maiores para tela HD
     const pit = {
-      x: GAME_CONFIG.width,
-      y: GAME_CONFIG.height - 40,
+      x: GAME_CONFIG.width + 100, // Spawn mais longe para tela maior
+      y: GAME_CONFIG.height - 60, // Ajustado para novo chão
       width: width,
-      height: 40,
-      speed: -(3 + Math.random() * 2),
+      height: 60, // Altura do chão
+      speed: -(4 + Math.random() * 3), // Velocidade ajustada para tela maior
       damage: 50,
       emoji: '🕳️'
     };
