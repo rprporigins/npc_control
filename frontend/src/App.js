@@ -769,6 +769,20 @@ function App() {
       case 'boss':
         enemy.y = Math.min(enemy.y + enemy.speed, 100);
         
+        // Dynamic difficulty - boss gets stronger over time
+        if (enemy.dynamicDifficultyStart) {
+          const timeAlive = now - enemy.dynamicDifficultyStart;
+          const difficultyMultiplier = 1 + (timeAlive / 30000); // Increase 1% every 300ms
+          
+          // Increase damage over time
+          enemy.baseDamage = enemy.baseDamage || enemy.damage;
+          enemy.damage = Math.round(enemy.baseDamage * difficultyMultiplier);
+          
+          // Increase speed over time
+          enemy.baseSpeed = enemy.baseSpeed || enemy.speed;
+          enemy.speed = enemy.baseSpeed * Math.min(difficultyMultiplier, 2); // Cap at 2x speed
+        }
+        
         // Boss segue jogador agressivamente
         if (enemy.x < player.x - 20) {
           enemy.x += enemy.speed * 4;
@@ -776,45 +790,62 @@ function App() {
           enemy.x -= enemy.speed * 4;
         }
         
-        // Ataque constante do boss
+        // Slower but more numerous projectiles
         const healthPercent = enemy.hp / enemy.maxHp;
-        let shootInterval = 300;
+        let shootInterval = 800; // Slower shooting rate
         
         if (healthPercent < 0.5) {
-          shootInterval = 150; // Muito rápido
+          shootInterval = 600; // Still slower but more frequent when hurt
         }
         
         if (now - enemy.lastShot > shootInterval) {
-          // Múltiplos padrões de ataque
-          const bulletSpeed = 8;
+          // Multiple projectile patterns with slower speed
+          const bulletSpeed = 4; // Slower bullets for dodging
           
-          // Tiros em spread
-          for (let i = -4; i <= 4; i++) {
+          // Spread pattern - more projectiles but slower
+          for (let i = -6; i <= 6; i++) {
             gameState.enemyBullets.push({
               x: enemy.x + enemy.width / 2,
               y: enemy.y + enemy.height,
-              vx: i * 2,
-              vy: 8,
-              width: 15,
-              height: 15,
-              damage: enemy.damage * 0.3,
+              vx: i * 1.5,
+              vy: bulletSpeed,
+              width: 12,
+              height: 12,
+              damage: enemy.damage * 0.25, // Reduced damage per bullet
               color: '#dc2626',
               emoji: '💀'
             });
           }
           
-          // Tiro direcionado
-          gameState.enemyBullets.push({
-            x: enemy.x + enemy.width / 2,
-            y: enemy.y + enemy.height,
-            vx: (dx / distanceToPlayer) * bulletSpeed * 1.5,
-            vy: (dy / distanceToPlayer) * bulletSpeed * 1.5,
-            width: 20,
-            height: 20,
-            damage: enemy.damage * 0.6,
-            color: '#dc2626',
-            emoji: '💥'
-          });
+          // Circular pattern
+          for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+            gameState.enemyBullets.push({
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height / 2,
+              vx: Math.cos(angle) * bulletSpeed,
+              vy: Math.sin(angle) * bulletSpeed,
+              width: 10,
+              height: 10,
+              damage: enemy.damage * 0.2,
+              color: '#dc2626',
+              emoji: '🔥'
+            });
+          }
+          
+          // Targeted shot - slightly faster
+          if (distanceToPlayer > 0) {
+            gameState.enemyBullets.push({
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height,
+              vx: (dx / distanceToPlayer) * bulletSpeed * 1.5,
+              vy: (dy / distanceToPlayer) * bulletSpeed * 1.5,
+              width: 18,
+              height: 18,
+              damage: enemy.damage * 0.4,
+              color: '#dc2626',
+              emoji: '💥'
+            });
+          }
           
           enemy.lastShot = now;
         }
