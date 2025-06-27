@@ -1596,41 +1596,140 @@ function App() {
     const player = state.player;
     
     switch (powerUp.id) {
+      // Additive damage power-ups
+      case 'magic_damage_small':
+        player.damage = Math.round(player.damage * 1.1); // +10% dano
+        break;
+      case 'magic_damage_medium':
+        player.damage = Math.round(player.damage * 1.15); // +15% dano
+        break;
+      case 'magic_damage_large':
+        player.damage = Math.round(player.damage * 1.25); // +25% dano
+        break;
+      case 'mega_damage':
+        player.damage = Math.round(player.damage * 1.5); // +50% dano
+        break;
+      
+      // Additive projectile power-ups
+      case 'double_shot':
+        player.projectileCount = Math.max(player.projectileCount || 1, 2); // Ensure at least 2 shots
+        break;
+      case 'extra_projectile':
+        player.projectileCount = (player.projectileCount || 1) + 1; // +1 projectile (additive)
+        break;
+      
+      // Fire rate improvements
+      case 'fire_rate_small':
+        player.fireRate = Math.round(player.fireRate * 0.9); // 10% mais rápido
+        break;
+      case 'fire_rate_medium':
+        player.fireRate = Math.round(player.fireRate * 0.8); // 20% mais rápido
+        break;
+      
+      // Projectile speed
+      case 'projectile_speed':
+        player.projectileSpeed = (player.projectileSpeed || 12) * 1.15; // +15% velocidade
+        break;
+      
+      // Special projectile effects
+      case 'pierce_shot':
+        player.piercing = true;
+        player.piercingCount = (player.piercingCount || 0) + 2; // +2 piercing count
+        break;
+      case 'explosive_shot':
+        player.explosive = true;
+        player.explosionRadius = (player.explosionRadius || 0) + 60; // +60 raio da explosão
+        break;
+      case 'homing_missiles':
+        player.homing = true;
+        break;
+      case 'chain_lightning':
+        player.chainLightning = true;
+        player.chainCount = (player.chainCount || 0) + 3; // +3 chain jumps
+        break;
+      
+      // Additive health power-ups
+      case 'hp_boost_small':
+        player.maxHp = Math.round(player.maxHp + 20);
+        player.hp = Math.round(player.hp + 20);
+        break;
+      case 'hp_boost_medium':
+        player.maxHp = Math.round(player.maxHp + 30);
+        player.hp = Math.round(player.hp + 30);
+        break;
+      case 'hp_boost_large':
+        player.maxHp = Math.round(player.maxHp + 50);
+        player.hp = Math.round(player.hp + 50);
+        break;
+      
+      // Additive speed power-ups
+      case 'speed_boost_small':
+        GAME_CONFIG.playerSpeed = Math.round(GAME_CONFIG.playerSpeed * 1.15); // +15% velocidade
+        break;
+      case 'speed_boost_medium':
+        GAME_CONFIG.playerSpeed = Math.round(GAME_CONFIG.playerSpeed * 1.2); // +20% velocidade
+        break;
+      case 'speed_boost_large':
+        GAME_CONFIG.playerSpeed = Math.round(GAME_CONFIG.playerSpeed * 1.3); // +30% velocidade
+        break;
+      
+      // Additive damage reduction
+      case 'damage_reduction_small':
+        player.damageReduction = Math.min((player.damageReduction || 0) + 0.1, 0.8); // +10%, máx 80%
+        break;
+      case 'damage_reduction_medium':
+        player.damageReduction = Math.min((player.damageReduction || 0) + 0.15, 0.8); // +15%, máx 80%
+        break;
+      case 'damage_reduction_large':
+        player.damageReduction = Math.min((player.damageReduction || 0) + 0.25, 0.8); // +25%, máx 80%
+        break;
+      
+      // Additive shield power-ups
+      case 'shield_small':
+        player.shield = (player.shield || 0) + 2; // +2 escudos
+        break;
+      case 'shield_medium':
+        player.shield = (player.shield || 0) + 3; // +3 escudos
+        break;
+      case 'shield_large':
+        player.shield = (player.shield || 0) + 5; // +5 escudos
+        break;
+      
+      // Health regeneration
+      case 'hp_regen':
+        player.hpRegenRate = (player.hpRegenRate || 0) + 2; // +2 HP por 8s
+        player.lastHpRegen = Date.now();
+        break;
+      
+      // Dash ability
+      case 'dash_ability':
+        player.hasDash = true;
+        player.dashSpeed = (player.dashSpeed || 1) + 2; // +2 dash speed multiplier
+        break;
+      
+      // Legacy power-ups for backward compatibility
       case 'magic_damage':
         player.damage = Math.round(player.damage * 1.2); // +20% dano
         break;
       case 'fire_rate_1':
         player.fireRate = Math.round(player.fireRate * 0.8); // 20% mais rápido
         break;
-      case 'double_shot':
-        player.projectileCount = 2;
-        break;
       case 'triple_shot':
-        player.projectileCount = 3;
+        player.projectileCount = Math.max(player.projectileCount || 1, 3); // Ensure at least 3 shots
         break;
       case 'shotgun_blast':
-        player.projectileCount = 5;
+        player.projectileCount = Math.max(player.projectileCount || 1, 5); // Ensure at least 5 shots
         break;
       case 'pierce_1':
         player.piercing = true;
-        player.piercingCount = 2; // Atravessa 2 inimigos
+        player.piercingCount = (player.piercingCount || 0) + 2; // +2 piercing
         break;
       case 'explosion_shot':
         player.explosive = true;
-        player.explosionRadius = 60; // Raio da explosão
-        break;
-      case 'homing_missiles':
-        player.homing = true;
+        player.explosionRadius = (player.explosionRadius || 0) + 60; // +60 raio
         break;
       case 'rapid_fire':
         player.fireRate = Math.round(player.fireRate * 0.5); // 50% mais rápido
-        break;
-      case 'mega_damage':
-        player.damage = Math.round(player.damage * 1.5); // +50% dano
-        break;
-      case 'chain_lightning':
-        player.chainLightning = true;
-        player.chainCount = 3; // Salta para 3 inimigos
         break;
       case 'max_hp_25':
         player.maxHp = Math.round(player.maxHp + 25);
@@ -1648,14 +1747,6 @@ function App() {
         break;
       case 'shield':
         player.shield = (player.shield || 0) + 5; // +5 escudos
-        break;
-      case 'hp_regen':
-        player.hpRegenRate = (player.hpRegenRate || 0) + 2; // +2 HP por 5s
-        player.lastHpRegen = Date.now();
-        break;
-      case 'dash':
-        player.hasDash = true;
-        player.dashSpeed = 3; // Multiplicador de velocidade do dash
         break;
       case 'invincibility_frames':
         player.invincibilityFrames = true;
