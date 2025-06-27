@@ -964,6 +964,40 @@ function App() {
 
     updateScreenShake(state);
     
+    // Update boss introduction
+    if (state.bossIntroduction.active) {
+      const introTime = now - state.bossIntroduction.startTime;
+      const progress = Math.min(introTime / state.bossIntroduction.duration, 1);
+      
+      // Animate boss scale
+      state.bossIntroduction.scale = 0.1 + (0.9 * progress);
+      
+      // Complete introduction
+      if (progress >= 1) {
+        const boss = state.bossIntroduction.boss;
+        boss.x = GAME_CONFIG.width / 2 - boss.width / 2;
+        boss.y = 50; // Move to top after introduction
+        state.enemies.push(boss);
+        
+        state.bossIntroduction.active = false;
+        state.waveManager.continuousSpawnActive = true; // Resume spawning
+        
+        // Boss appearance screen shake
+        triggerScreenShake(30, 500);
+        
+        // Final boss appearance particles
+        state.particleSystem.emit(boss.x + boss.width/2, boss.y + boss.height/2, {
+          count: 75,
+          colors: ['#dc2626', '#ffffff', '#ffff00', '#ff6600'],
+          size: { min: 8, max: 20 },
+          speed: 20,
+          lifespan: 100,
+          behavior: 'explosion',
+          spread: Math.PI * 2
+        });
+      }
+    }
+    
     // Update starfield
     state.starField.update(8);
 
