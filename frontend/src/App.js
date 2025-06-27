@@ -2144,6 +2144,51 @@ function App() {
     // Render particle system
     state.particleSystem.render(ctx);
 
+    // Render boss introduction
+    if (state.bossIntroduction.active) {
+      const boss = state.bossIntroduction.boss;
+      const scale = state.bossIntroduction.scale;
+      
+      // Dark overlay for dramatic effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+      
+      // Boss spotlight
+      const gradient = ctx.createRadialGradient(
+        boss.x + boss.width/2, boss.y + boss.height/2, 0,
+        boss.x + boss.width/2, boss.y + boss.height/2, 200
+      );
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+      
+      // Render boss with scaling
+      ctx.save();
+      ctx.translate(boss.x + boss.width/2, boss.y + boss.height/2);
+      ctx.scale(scale, scale);
+      ctx.translate(-boss.width/2, -boss.height/2);
+      
+      renderEmoji(ctx, boss.emoji, boss.width/2, boss.height/2, 54 * scale);
+      
+      ctx.restore();
+      
+      // Boss introduction text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '48px monospace';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeText('👑 BOSS APARECE! 👑', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 200);
+      ctx.fillText('👑 BOSS APARECE! 👑', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 200);
+      
+      // Warning text
+      ctx.font = '24px monospace';
+      ctx.fillStyle = '#ff4444';
+      ctx.strokeText('⚠️ PREPARE-SE PARA A BATALHA! ⚠️', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 250);
+      ctx.fillText('⚠️ PREPARE-SE PARA A BATALHA! ⚠️', GAME_CONFIG.width / 2, GAME_CONFIG.height / 2 + 250);
+    }
+
     // Render particles
     state.particles.forEach(particle => {
       const alpha = particle.life / particle.maxLife;
