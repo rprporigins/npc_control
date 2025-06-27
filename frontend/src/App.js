@@ -468,35 +468,51 @@ class WaveManager {
 }
 
 const POWER_UPS = {
-  common_offensive: [
-    { id: 'residual_flame', name: 'Chama Residual', desc: 'Inimigos queimam por 2s ao serem atingidos', rarity: 'common' },
-    { id: 'magic_damage', name: '+15% Dano Mágico', desc: 'Aumenta dano significativamente', rarity: 'common' },
-    { id: 'fire_rate_1', name: 'Cadência Rápida', desc: 'Reduz tempo entre disparos em 15%', rarity: 'common' },
-    { id: 'double_shot', name: 'Tiro Duplo', desc: 'Atira 2 projéteis simultaneamente', rarity: 'common' },
+  // TIER 1 - NÍVEIS 1-3 (Básicos)
+  tier1_offensive: [
+    { id: 'magic_damage_small', name: '+10% Dano Mágico', desc: 'Aumenta dano base em 10%', rarity: 'common', tier: 1 },
+    { id: 'double_shot', name: 'Tiro Duplo', desc: 'Atira 2 projéteis simultaneamente', rarity: 'common', tier: 1 },
+    { id: 'projectile_speed', name: '+15% Velocidade de Projétil', desc: 'Projéteis voam mais rápido', rarity: 'common', tier: 1 },
+    { id: 'extra_projectile', name: '+1 Projétil', desc: 'Adiciona mais 1 projétil ao seu ataque', rarity: 'uncommon', tier: 1 },
   ],
-  uncommon_offensive: [
-    { id: 'triple_shot', name: 'Tiro Triplo', desc: 'Atira 3 projéteis em spread', rarity: 'uncommon' },
-    { id: 'pierce_1', name: 'Perfuração', desc: 'Magias atravessam inimigos', rarity: 'uncommon' },
-    { id: 'explosion_shot', name: 'Tiro Explosivo', desc: 'Projéteis explodem ao atingir', rarity: 'uncommon' },
-    { id: 'homing_missiles', name: 'Mísseis Teleguiados', desc: 'Projéteis perseguem inimigos', rarity: 'uncommon' },
+  tier1_defensive: [
+    { id: 'hp_boost_small', name: '+20 Vida Máxima', desc: 'Aumenta vida máxima', rarity: 'common', tier: 1 },
+    { id: 'speed_boost_small', name: '+15% Velocidade', desc: 'Move mais rápido', rarity: 'common', tier: 1 },
+    { id: 'damage_reduction_small', name: '+10% Resistência', desc: 'Reduz dano recebido', rarity: 'common', tier: 1 },
+    { id: 'shield_small', name: '+2 Escudos', desc: 'Absorve próximos 2 ataques', rarity: 'uncommon', tier: 1 },
   ],
-  rare_offensive: [
-    { id: 'chain_lightning', name: 'Raio em Cadeia', desc: 'Salta entre 3 inimigos próximos', rarity: 'rare' },
-    { id: 'rapid_fire', name: 'Tiro Rápido', desc: 'Cadência extremamente rápida', rarity: 'rare' },
-    { id: 'mega_damage', name: 'Mega Dano', desc: '+50% dano base', rarity: 'rare' },
-    { id: 'shotgun_blast', name: 'Rajada', desc: 'Atira 5 projéteis em leque', rarity: 'rare' },
+  
+  // TIER 2 - NÍVEIS 4-7 (Intermediários)
+  tier2_offensive: [
+    { id: 'magic_damage_medium', name: '+15% Dano Mágico', desc: 'Aumenta dano base significativamente', rarity: 'uncommon', tier: 2 },
+    { id: 'extra_projectile', name: '+1 Projétil', desc: 'Adiciona mais 1 projétil ao seu ataque', rarity: 'uncommon', tier: 2 },
+    { id: 'pierce_shot', name: 'Perfuração', desc: 'Projéteis atravessam inimigos', rarity: 'uncommon', tier: 2 },
+    { id: 'explosive_shot', name: 'Tiro Explosivo', desc: 'Projéteis explodem ao atingir', rarity: 'rare', tier: 2 },
+    { id: 'fire_rate_small', name: '+10% Cadência', desc: 'Atira um pouco mais rápido', rarity: 'uncommon', tier: 2 },
   ],
-  common_defensive: [
-    { id: 'max_hp_25', name: '+25 Vida Máxima', desc: 'Aumenta vida máxima', rarity: 'common' },
-    { id: 'speed_boost', name: '+20% Velocidade', desc: 'Move muito mais rápido', rarity: 'common' },
-    { id: 'hp_regen', name: 'Regeneração', desc: 'Recupera 1 vida a cada 5s', rarity: 'common' },
-    { id: 'damage_reduction', name: 'Resistência', desc: 'Reduz 15% do dano recebido', rarity: 'common' },
+  tier2_defensive: [
+    { id: 'hp_boost_medium', name: '+30 Vida Máxima', desc: 'Grande aumento de vida', rarity: 'uncommon', tier: 2 },
+    { id: 'speed_boost_medium', name: '+20% Velocidade', desc: 'Movimento muito mais rápido', rarity: 'uncommon', tier: 2 },
+    { id: 'damage_reduction_medium', name: '+15% Resistência', desc: 'Boa redução de dano', rarity: 'uncommon', tier: 2 },
+    { id: 'shield_medium', name: '+3 Escudos', desc: 'Absorve próximos 3 ataques', rarity: 'rare', tier: 2 },
+    { id: 'hp_regen', name: 'Regeneração', desc: 'Recupera 2 vida a cada 8s', rarity: 'rare', tier: 2 },
   ],
-  uncommon_defensive: [
-    { id: 'max_hp_50', name: '+50 Vida Máxima', desc: 'Grande aumento de vida', rarity: 'uncommon' },
-    { id: 'shield', name: 'Escudo', desc: 'Absorve próximos 3 ataques', rarity: 'uncommon' },
-    { id: 'dash', name: 'Dash', desc: 'Habilidade de dash rápido', rarity: 'uncommon' },
-    { id: 'invincibility_frames', name: 'Imunidade', desc: 'Breve invencibilidade ao tomar dano', rarity: 'uncommon' },
+  
+  // TIER 3 - NÍVEIS 8+ (Avançados)
+  tier3_offensive: [
+    { id: 'magic_damage_large', name: '+25% Dano Mágico', desc: 'Enorme aumento de dano', rarity: 'rare', tier: 3 },
+    { id: 'extra_projectile', name: '+1 Projétil', desc: 'Adiciona mais 1 projétil ao seu ataque', rarity: 'rare', tier: 3 },
+    { id: 'chain_lightning', name: 'Raio em Cadeia', desc: 'Projéteis saltam entre inimigos próximos', rarity: 'rare', tier: 3 },
+    { id: 'homing_missiles', name: 'Mísseis Teleguiados', desc: 'Projéteis perseguem inimigos', rarity: 'rare', tier: 3 },
+    { id: 'fire_rate_medium', name: '+20% Cadência', desc: 'Atira muito mais rápido', rarity: 'rare', tier: 3 },
+    { id: 'mega_damage', name: '+50% Dano Mágico', desc: 'Poder destrutivo extremo', rarity: 'legendary', tier: 3 },
+  ],
+  tier3_defensive: [
+    { id: 'hp_boost_large', name: '+50 Vida Máxima', desc: 'Aumento massivo de vida', rarity: 'rare', tier: 3 },
+    { id: 'speed_boost_large', name: '+30% Velocidade', desc: 'Velocidade extrema', rarity: 'rare', tier: 3 },
+    { id: 'damage_reduction_large', name: '+25% Resistência', desc: 'Alta resistência a dano', rarity: 'rare', tier: 3 },
+    { id: 'shield_large', name: '+5 Escudos', desc: 'Absorve próximos 5 ataques', rarity: 'legendary', tier: 3 },
+    { id: 'dash_ability', name: 'Habilidade Dash', desc: 'Dash rápido com SHIFT', rarity: 'rare', tier: 3 },
   ]
 };
 
