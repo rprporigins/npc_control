@@ -353,6 +353,13 @@ class WaveManager {
     const types = config.enemyTypes;
     const type = types[Math.floor(Math.random() * types.length)];
     
+    // Special handling for boss introduction
+    if (type === 'boss' && !gameState.bossIntroduction.active) {
+      // Start boss introduction sequence instead of spawning immediately
+      this.startBossIntroduction(gameState, config);
+      return null;
+    }
+    
     this.enemiesSpawned++;
     
     return this.createEnemyOfType(type, config, gameState);
