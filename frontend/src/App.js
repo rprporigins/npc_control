@@ -2,20 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import './App.css';
 
 const GAME_CONFIG = {
-  width: 1400,
-  height: 900,
+  width: 1920, // Full HD Width
+  height: 1080, // Full HD Height
   gravity: 0.4,
   jumpPower: -12,
   flyPower: -0.5,
-  playerSpeed: 6,
-  fireRate: 200, // Tiro mais rápido
+  playerSpeed: 8, // Velocidade maior para tela maior
+  fireRate: 200,
   xpPerLevel: 100,
-  enemySpawnRate: 400, // MUITO mais rápido
-  obstacleSpawnRate: 3000, // Obstáculos muito mais frequentes
-  sideObstacleSpawnRate: 2000, // Obstáculos laterais
-  pitSpawnRate: 4000, // Buracos no chão
-  maxFlyHeight: 250,
-  continuousEnemySpawn: true, // Spawn contínuo
+  enemySpawnRate: 400,
+  obstacleSpawnRate: 3000,
+  sideObstacleSpawnRate: 2000,
+  pitSpawnRate: 4000,
+  maxFlyHeight: 350, // Altura de voo maior
+  continuousEnemySpawn: true,
 };
 
 // Background stars system
