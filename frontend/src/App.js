@@ -1101,7 +1101,7 @@ function App() {
     const dy = mouse.y - (player.y + player.height / 2);
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    const speed = 12;
+    const speed = player.projectileSpeed || 12;
     const baseVx = (dx / distance) * speed;
     const baseVy = (dy / distance) * speed;
 
@@ -1112,7 +1112,7 @@ function App() {
     for (let i = 0; i < projectileCount; i++) {
       const angle = (i - (projectileCount - 1) / 2) * spread / (projectileCount - 1 || 1);
       const vx = baseVx * Math.cos(angle) - baseVy * Math.sin(angle);
-      const vy = baseVx * Math.sin(angle) + baseVy * Math.cos(angle);
+      const vy = baseVx * Math.sin(angle) + baseVx * Math.cos(angle);
 
       state.bullets.push({
         x: player.x + player.width / 2,
@@ -1126,7 +1126,9 @@ function App() {
         piercing: player.piercing || false,
         explosive: player.explosive || false,
         homing: player.homing || false,
-        piercesLeft: player.piercing ? 3 : 0
+        chainLightning: player.chainLightning || false,
+        chainCount: player.chainCount || 0,
+        piercesLeft: player.piercingCount || (player.piercing ? 3 : 0)
       });
     }
 
