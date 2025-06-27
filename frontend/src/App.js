@@ -1279,6 +1279,67 @@ function App() {
             }
           }
 
+          // Chain Lightning effect
+          if (bullet.chainLightning && bullet.chainCount > 0) {
+            // Find nearby enemies for chain lightning
+            const chainRange = 150;
+            const nearbyEnemies = state.enemies.filter(nearbyEnemy => {
+              if (nearbyEnemy === enemy) return false; // Don't chain to the same enemy
+              const dist = Math.sqrt((nearbyEnemy.x - enemy.x)**2 + (nearbyEnemy.y - enemy.y)**2);
+              return dist <= chainRange;
+            });
+            
+            // Sort by distance and take up to chainCount enemies
+            nearbyEnemies.sort((a, b) => {
+              const distA = Math.sqrt((a.x - enemy.x)**2 + (a.y - enemy.y)**2);
+              const distB = Math.sqrt((b.x - enemy.x)**2 + (b.y - enemy.y)**2);
+              return distA - distB;
+            });
+            
+            const chainTargets = nearbyEnemies.slice(0, bullet.chainCount);
+            
+            // Create chain lightning projectiles
+            chainTargets.forEach(target => {
+              const dx = target.x - enemy.x;
+              const dy = target.y - enemy.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const speed = bullet.vx * bullet.vx + bullet.vy * bullet.vy; // Maintain speed
+              const chainVx = (dx / distance) * Math.sqrt(speed);
+              const chainVy = (dy / distance) * Math.sqrt(speed);
+              
+              state.bullets.push({
+                x: enemy.x + enemy.width / 2,
+                y: enemy.y + enemy.height / 2,
+                vx: chainVx,
+                vy: chainVy,
+                width: 6,
+                height: 6,
+                damage: Math.round(bullet.damage * 0.75), // Reduced damage for chain
+                emoji: '⚡',
+                piercing: false,
+                explosive: false,
+                homing: false,
+                chainLightning: true,
+                chainCount: bullet.chainCount - 1, // Reduce chain count
+                piercesLeft: 0
+              });
+            });
+            
+            // Chain lightning visual effect
+            if (chainTargets.length > 0) {
+              state.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
+                count: 25,
+                colors: ['#00ffff', '#ffffff', '#ffff00', '#0080ff'],
+                size: { min: 2, max: 6 },
+                speed: 12,
+                lifespan: 30,
+                behavior: 'magic'
+              });
+              
+              triggerScreenShake(6, 150);
+            }
+          }
+
           // Explosion effect
           if (bullet.explosive) {
             state.particleSystem.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, {
