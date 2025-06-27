@@ -1561,72 +1561,97 @@ function App() {
     
     switch (powerUp.id) {
       case 'magic_damage':
-        player.damage *= 1.15;
+        player.damage = Math.round(player.damage * 1.2); // +20% dano
         break;
       case 'fire_rate_1':
-        player.fireRate *= 0.85;
+        player.fireRate = Math.round(player.fireRate * 0.8); // 20% mais rápido
         break;
       case 'double_shot':
-        player.projectileCount = Math.max(player.projectileCount || 1, 2);
+        player.projectileCount = 2;
         break;
       case 'triple_shot':
-        player.projectileCount = Math.max(player.projectileCount || 1, 3);
+        player.projectileCount = 3;
         break;
       case 'shotgun_blast':
-        player.projectileCount = Math.max(player.projectileCount || 1, 5);
+        player.projectileCount = 5;
         break;
       case 'pierce_1':
         player.piercing = true;
+        player.piercingCount = 2; // Atravessa 2 inimigos
         break;
       case 'explosion_shot':
         player.explosive = true;
+        player.explosionRadius = 60; // Raio da explosão
         break;
       case 'homing_missiles':
         player.homing = true;
         break;
       case 'rapid_fire':
-        player.fireRate *= 0.5;
+        player.fireRate = Math.round(player.fireRate * 0.5); // 50% mais rápido
         break;
       case 'mega_damage':
-        player.damage *= 1.5;
+        player.damage = Math.round(player.damage * 1.5); // +50% dano
+        break;
+      case 'chain_lightning':
+        player.chainLightning = true;
+        player.chainCount = 3; // Salta para 3 inimigos
         break;
       case 'max_hp_25':
-        player.maxHp += 25;
-        player.hp += 25;
+        player.maxHp = Math.round(player.maxHp + 25);
+        player.hp = Math.round(player.hp + 25);
         break;
       case 'max_hp_50':
-        player.maxHp += 50;
-        player.hp += 50;
+        player.maxHp = Math.round(player.maxHp + 50);
+        player.hp = Math.round(player.hp + 50);
         break;
       case 'speed_boost':
-        GAME_CONFIG.playerSpeed *= 1.2;
+        GAME_CONFIG.playerSpeed = Math.round(GAME_CONFIG.playerSpeed * 1.25); // +25% velocidade
         break;
       case 'damage_reduction':
-        player.damageReduction = (player.damageReduction || 0) + 0.15;
+        player.damageReduction = Math.min((player.damageReduction || 0) + 0.2, 0.8); // +20%, máx 80%
         break;
       case 'shield':
-        player.shield = (player.shield || 0) + 3;
+        player.shield = (player.shield || 0) + 5; // +5 escudos
         break;
       case 'hp_regen':
-        player.hpRegenRate = (player.hpRegenRate || 0) + 1;
+        player.hpRegenRate = (player.hpRegenRate || 0) + 2; // +2 HP por 5s
         player.lastHpRegen = Date.now();
+        break;
+      case 'dash':
+        player.hasDash = true;
+        player.dashSpeed = 3; // Multiplicador de velocidade do dash
+        break;
+      case 'invincibility_frames':
+        player.invincibilityFrames = true;
+        player.invincibilityDuration = 1000; // 1s de invencibilidade após dano
+        break;
+      case 'residual_flame':
+        player.burnEffect = true;
+        player.burnDamage = Math.round(player.damage * 0.3); // 30% do dano como burn
+        player.burnDuration = 3000; // 3s de burn
         break;
     }
     
-    // Visual feedback
+    // Garantir que HP não passe do máximo
+    player.hp = Math.min(player.hp, player.maxHp);
+    
+    // Visual feedback melhorado
     state.particleSystem.emit(
       player.x + player.width / 2,
       player.y + player.height / 2,
       {
-        count: 25,
-        colors: ['#ffd700', '#ffff00', '#ffffff'],
-        size: { min: 3, max: 10 },
-        speed: 8,
-        lifespan: 50,
+        count: 30,
+        colors: ['#ffd700', '#ffff00', '#ffffff', '#00ff00'],
+        size: { min: 4, max: 12 },
+        speed: 10,
+        lifespan: 60,
         behavior: 'magic',
         spread: Math.PI * 2
       }
     );
+    
+    // Screen shake de evolução
+    triggerScreenShake(8, 200);
   };
 
   const gameOver = (state) => {
